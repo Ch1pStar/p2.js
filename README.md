@@ -1,3 +1,9 @@
+Purpose of this fork
+=====================
+
+Expand on the STATIC, KINEMATIC, DYNAMIC functionality of physics libraries. Allow interaction filters between bodies. 
+Assign arbitrary type identifiers to p2 bodies which allow them to interact differntly between each other(i.e. type 1 might collide with type 2, but not with type 3).
+
 p2.js
 =====
 
