@@ -1,7 +1,6 @@
 var Constraint = require('./Constraint')
 ,   Equation = require('../equations/Equation')
-,   vec2 = require('../math/vec2')
-,   Utils = require('../utils/Utils');
+,   vec2 = require('../math/vec2');
 
 module.exports = DistanceConstraint;
 
@@ -38,10 +37,7 @@ module.exports = DistanceConstraint;
  *     world.addConstraint(constraint);
  */
 function DistanceConstraint(bodyA,bodyB,options){
-    options = Utils.defaults(options,{
-        localAnchorA:[0,0],
-        localAnchorB:[0,0]
-    });
+    options = options || {};
 
     Constraint.call(this,bodyA,bodyB,Constraint.DISTANCE,options);
 
@@ -50,14 +46,14 @@ function DistanceConstraint(bodyA,bodyB,options){
      * @property localAnchorA
      * @type {Array}
      */
-    this.localAnchorA = vec2.fromValues(options.localAnchorA[0], options.localAnchorA[1]);
+    this.localAnchorA = options.localAnchorA ? vec2.clone(options.localAnchorA) : vec2.create();
 
     /**
      * Local anchor in body B.
      * @property localAnchorB
      * @type {Array}
      */
-    this.localAnchorB = vec2.fromValues(options.localAnchorB[0], options.localAnchorB[1]);
+    this.localAnchorB = options.localAnchorB ? vec2.clone(options.localAnchorB) : vec2.create();
 
     var localAnchorA = this.localAnchorA;
     var localAnchorB = this.localAnchorB;
@@ -107,7 +103,7 @@ function DistanceConstraint(bodyA,bodyB,options){
     // g = (xi - xj).dot(n)
     // dg/dt = (vi - vj).dot(n) = G*W = [n 0 -n 0] * [vi wi vj wj]'
 
-    // ...and if we were to include offset points (TODO for now):
+    // ...and if we were to include offset points:
     // g =
     //      (xj + rj - xi - ri).dot(n) - distance
     //
@@ -188,7 +184,6 @@ DistanceConstraint.prototype.update = function(){
     var normal = this.equations[0],
         bodyA = this.bodyA,
         bodyB = this.bodyB,
-        distance = this.distance,
         xi = bodyA.position,
         xj = bodyB.position,
         normalEquation = this.equations[0],

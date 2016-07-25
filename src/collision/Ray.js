@@ -1,132 +1,137 @@
 module.exports = Ray;
 
 var vec2 = require('../math/vec2');
-var RaycastResult = require('../collision/RaycastResult');
-var Shape = require('../shapes/Shape');
-var AABB = require('../collision/AABB');
 
 /**
- * A line with a start and end point that is used to intersect shapes.
+ * A line with a start and end point that is used to intersect shapes. For an example, see {{#crossLink "World/raycast:method"}}World.raycast{{/crossLink}}
  * @class Ray
  * @constructor
+ * @param {object} [options]
+ * @param {array} [options.from]
+ * @param {array} [options.to]
+ * @param {boolean} [options.checkCollisionResponse=true]
+ * @param {boolean} [options.skipBackfaces=false]
+ * @param {number} [options.collisionMask=-1]
+ * @param {number} [options.collisionGroup=-1]
+ * @param {number} [options.mode=Ray.ANY]
+ * @param {Function} [options.callback]
  */
 function Ray(options){
     options = options || {};
 
     /**
+     * Ray start point.
      * @property {array} from
      */
-    this.from = options.from ? vec2.fromValues(options.from[0], options.from[1]) : vec2.create();
+    this.from = options.from ? vec2.clone(options.from) : vec2.create();
 
     /**
+     * Ray end point
      * @property {array} to
      */
-    this.to = options.to ? vec2.fromValues(options.to[0], options.to[1]) : vec2.create();
-
-    /**
-     * @private
-     * @property {array} _direction
-     */
-    this._direction = vec2.create();
-
-    /**
-     * The precision of the ray. Used when checking parallelity etc.
-     * @property {Number} precision
-     */
-    this.precision = 0.0001;
+    this.to = options.to ? vec2.clone(options.to) : vec2.create();
 
     /**
      * Set to true if you want the Ray to take .collisionResponse flags into account on bodies and shapes.
      * @property {Boolean} checkCollisionResponse
      */
-    this.checkCollisionResponse = true;
+    this.checkCollisionResponse = options.checkCollisionResponse !== undefined ? options.checkCollisionResponse : true;
 
     /**
      * If set to true, the ray skips any hits with normal.dot(rayDirection) < 0.
      * @property {Boolean} skipBackfaces
      */
-    this.skipBackfaces = false;
+    this.skipBackfaces = !!options.skipBackfaces;
 
     /**
      * @property {number} collisionMask
      * @default -1
      */
-    this.collisionMask = -1;
+    this.collisionMask = options.collisionMask !== undefined ? options.collisionMask : -1;
 
     /**
      * @property {number} collisionGroup
      * @default -1
      */
-    this.collisionGroup = -1;
+    this.collisionGroup = options.collisionGroup !== undefined ? options.collisionGroup : -1;
 
     /**
-     * The intersection mode. Should be Ray.ANY, Ray.ALL or Ray.CLOSEST.
+     * The intersection mode. Should be {{#crossLink "Ray/ANY:property"}}Ray.ANY{{/crossLink}}, {{#crossLink "Ray/ALL:property"}}Ray.ALL{{/crossLink}} or {{#crossLink "Ray/CLOSEST:property"}}Ray.CLOSEST{{/crossLink}}.
      * @property {number} mode
      */
-    this.mode = Ray.ANY;
-
-    /**
-     * Current result object.
-     * @property {RaycastResult} result
-     */
-    this.result = new RaycastResult();
-
-    /**
-     * Will be set to true during intersectWorld() if the ray hit anything.
-     * @property {Boolean} hasHit
-     */
-    this.hasHit = false;
+    this.mode = options.mode !== undefined ? options.mode : Ray.ANY;
 
     /**
      * Current, user-provided result callback. Will be used if mode is Ray.ALL.
      * @property {Function} callback
      */
-    this.callback = function(result){};
+    this.callback = options.callback || function(/*result*/){};
+
+    /**
+     * @readOnly
+     * @property {array} direction
+     */
+    this.direction = vec2.create();
+
+    /**
+     * Length of the ray
+     * @readOnly
+     * @property {number} length
+     */
+    this.length = 1;
+
+    this.update();
 }
 Ray.prototype.constructor = Ray;
 
+/**
+ * This raycasting mode will make the Ray traverse through all intersection points and only return the closest one.
+ * @static
+ * @property {Number} CLOSEST
+ */
 Ray.CLOSEST = 1;
-Ray.ANY = 2;
-Ray.ALL = 4;
-
-var tmpAABB = new AABB();
-var tmpArray = [];
 
 /**
- * Do itersection against all bodies in the given World.
- * @method intersectWorld
- * @param  {World} world
- * @param  {object} options
- * @return {Boolean} True if the ray hit anything, otherwise false.
+ * This raycasting mode will make the Ray stop when it finds the first intersection point.
+ * @static
+ * @property {Number} ANY
  */
-Ray.prototype.intersectWorld = function (world, options) {
-    this.mode = options.mode || Ray.ANY;
-    this.result = options.result || new RaycastResult();
-    this.skipBackfaces = !!options.skipBackfaces;
-    this.collisionMask = typeof(options.collisionMask) !== 'undefined' ? options.collisionMask : -1;
-    this.collisionGroup = typeof(options.collisionGroup) !== 'undefined' ? options.collisionGroup : -1;
-    if(options.from){
-        vec2.copy(this.from, options.from);
-    }
-    if(options.to){
-        vec2.copy(this.to, options.to);
-    }
-    this.callback = options.callback || function(){};
-    this.hasHit = false;
+Ray.ANY = 2;
 
-    this.result.reset();
-    this._updateDirection();
+/**
+ * This raycasting mode will traverse all intersection points and executes a callback for each one.
+ * @static
+ * @property {Number} ALL
+ */
+Ray.ALL = 4;
 
-    this.getAABB(tmpAABB);
-    tmpArray.length = 0;
-    world.broadphase.aabbQuery(world, tmpAABB, tmpArray);
-    this.intersectBodies(tmpArray);
+/**
+ * Should be called if you change the from or to point.
+ * @method update
+ */
+Ray.prototype.update = function(){
 
-    return this.hasHit;
+    // Update .direction and .length
+    var d = this.direction;
+    vec2.sub(d, this.to, this.from);
+    this.length = vec2.length(d);
+    vec2.normalize(d, d);
+
 };
 
-var v1 = vec2.create(),
-    v2 = vec2.create();
+/**
+ * @method intersectBodies
+ * @param {Array} bodies An array of Body objects.
+ */
+Ray.prototype.intersectBodies = function (result, bodies) {
+    for (var i = 0, l = bodies.length; !result.shouldStop(this) && i < l; i++) {
+        var body = bodies[i];
+        var aabb = body.getAABB();
+        if(aabb.overlapsRay(this) >= 0 || aabb.containsPoint(this.from)){
+            this.intersectBody(result, body);
+        }
+    }
+};
 
 var intersectBody_worldPosition = vec2.create();
 
@@ -136,16 +141,12 @@ var intersectBody_worldPosition = vec2.create();
  * @private
  * @param {Body} body
  */
-Ray.prototype.intersectBody = function (body) {
+Ray.prototype.intersectBody = function (result, body) {
     var checkCollisionResponse = this.checkCollisionResponse;
 
     if(checkCollisionResponse && !body.collisionResponse){
         return;
     }
-
-    // if((this.collisionGroup & body.collisionMask)===0 || (body.collisionGroup & this.collisionMask)===0){
-    //     return;
-    // }
 
     var worldPosition = intersectBody_worldPosition;
 
@@ -156,44 +157,27 @@ Ray.prototype.intersectBody = function (body) {
             continue; // Skip
         }
 
+        if((this.collisionGroup & shape.collisionMask) === 0 || (shape.collisionGroup & this.collisionMask) === 0){
+            continue;
+        }
+
         // Get world angle and position of the shape
-        vec2.copy(worldPosition, body.shapeOffsets[i]);
-        vec2.rotate(worldPosition, worldPosition, body.angle);
+        vec2.rotate(worldPosition, shape.position, body.angle);
         vec2.add(worldPosition, worldPosition, body.position);
-        var worldAngle = body.shapeAngles[i] + body.angle;
+        var worldAngle = shape.angle + body.angle;
 
         this.intersectShape(
+            result,
             shape,
             worldAngle,
             worldPosition,
             body
         );
 
-        if(this.result._shouldStop){
+        if(result.shouldStop(this)){
             break;
         }
     }
-};
-
-/**
- * @method intersectBodies
- * @param {Array} bodies An array of Body objects.
- */
-Ray.prototype.intersectBodies = function (bodies) {
-    for ( var i = 0, l = bodies.length; !this.result._shouldStop && i < l; i ++ ) {
-        this.intersectBody(bodies[i]);
-    }
-};
-
-/**
- * Updates the _direction vector.
- * @private
- * @method _updateDirection
- */
-Ray.prototype._updateDirection = function(){
-    var d = this._direction;
-    vec2.sub(d, this.to, this.from);
-    vec2.normalize(d, d);
 };
 
 /**
@@ -204,320 +188,22 @@ Ray.prototype._updateDirection = function(){
  * @param {array} position
  * @param {Body} body
  */
-Ray.prototype.intersectShape = function(shape, angle, position, body){
+Ray.prototype.intersectShape = function(result, shape, angle, position, body){
     var from = this.from;
 
-
-    // Checking boundingSphere
-    var distance = distanceFromIntersection(from, this._direction, position);
-    if ( distance > shape.boundingSphereRadius ) {
+    // Checking radius
+    var distance = distanceFromIntersectionSquared(from, this.direction, position);
+    if (distance > shape.boundingRadius * shape.boundingRadius) {
         return;
     }
 
-    var method = this[shape.type];
-    if(method){
-        method.call(this, shape, angle, position, body);
-    }
+    this._currentBody = body;
+    this._currentShape = shape;
+
+    shape.raycast(result, this, position, angle);
+
+    this._currentBody = this._currentShape = null;
 };
-
-var vector = vec2.create();
-var normal = vec2.create();
-var intersectPoint = vec2.create();
-
-var a = vec2.create();
-var b = vec2.create();
-var c = vec2.create();
-var d = vec2.create();
-
-var tmpRaycastResult = new RaycastResult();
-var intersectRectangle_direction = vec2.create();
-var intersectRectangle_rayStart = vec2.create();
-var intersectRectangle_worldNormalMin = vec2.create();
-var intersectRectangle_worldNormalMax = vec2.create();
-var intersectRectangle_hitPointWorld = vec2.create();
-var intersectRectangle_boxMin = vec2.create();
-var intersectRectangle_boxMax = vec2.create();
-
-/**
- * @method intersectRectangle
- * @private
- * @param  {Shape} shape
- * @param  {number} angle
- * @param  {array} position
- * @param  {Body} body
- */
-Ray.prototype.intersectRectangle = function(shape, angle, position, body){
-    var tmin = -Number.MAX_VALUE;
-    var tmax = Number.MAX_VALUE;
-
-    var direction = intersectRectangle_direction;
-    var rayStart = intersectRectangle_rayStart;
-    var worldNormalMin = intersectRectangle_worldNormalMin;
-    var worldNormalMax = intersectRectangle_worldNormalMax;
-    var hitPointWorld = intersectRectangle_hitPointWorld;
-    var boxMin = intersectRectangle_boxMin;
-    var boxMax = intersectRectangle_boxMax;
-
-    vec2.set(boxMin, -shape.width * 0.5, -shape.height * 0.5);
-    vec2.set(boxMax, shape.width * 0.5, shape.height * 0.5);
-
-    // Transform the ray direction and start to local space
-    vec2.rotate(direction, this._direction, -angle);
-    body.toLocalFrame(rayStart, this.from);
-
-    if (direction[0] !== 0) {
-        var tx1 = (boxMin[0] - rayStart[0]) / direction[0];
-        var tx2 = (boxMax[0] - rayStart[0]) / direction[0];
-
-        var tminOld = tmin;
-        tmin = Math.max(tmin, Math.min(tx1, tx2));
-        if(tmin !== tminOld){
-            vec2.set(worldNormalMin, tx1 > tx2 ? 1 : -1, 0);
-        }
-
-        var tmaxOld = tmax;
-        tmax = Math.min(tmax, Math.max(tx1, tx2));
-        if(tmax !== tmaxOld){
-            vec2.set(worldNormalMax, tx1 < tx2 ? 1 : -1, 0);
-        }
-    }
-
-    if (direction[1] !== 0) {
-        var ty1 = (boxMin[1] - rayStart[1]) / direction[1];
-        var ty2 = (boxMax[1] - rayStart[1]) / direction[1];
-
-        var tminOld = tmin;
-        tmin = Math.max(tmin, Math.min(ty1, ty2));
-        if(tmin !== tminOld){
-            vec2.set(worldNormalMin, 0, ty1 > ty2 ? 1 : -1);
-        }
-
-        var tmaxOld = tmax;
-        tmax = Math.min(tmax, Math.max(ty1, ty2));
-        if(tmax !== tmaxOld){
-            vec2.set(worldNormalMax, 0, ty1 < ty2 ? 1 : -1);
-        }
-    }
-
-    if(tmax >= tmin){
-        // Hit point
-        vec2.set(
-            hitPointWorld,
-            rayStart[0] + direction[0] * tmin,
-            rayStart[1] + direction[1] * tmin
-        );
-
-        vec2.rotate(worldNormalMin, worldNormalMin, angle);
-
-        body.toWorldFrame(hitPointWorld, hitPointWorld);
-
-        this.reportIntersection(worldNormalMin, hitPointWorld, shape, body, -1);
-        if(this._shouldStop){
-            return;
-        }
-
-        vec2.rotate(worldNormalMax, worldNormalMax, angle);
-
-        // Hit point
-        vec2.set(
-            hitPointWorld,
-            rayStart[0] + direction[0] * tmax,
-            rayStart[1] + direction[1] * tmax
-        );
-        body.toWorldFrame(hitPointWorld, hitPointWorld);
-
-        this.reportIntersection(worldNormalMax, hitPointWorld, shape, body, -1);
-    }
-};
-Ray.prototype[Shape.RECTANGLE] = Ray.prototype.intersectRectangle;
-
-var intersectPlane_planePointToFrom = vec2.create();
-var intersectPlane_dir_scaled_with_t = vec2.create();
-var intersectPlane_hitPointWorld = vec2.create();
-var intersectPlane_worldNormal = vec2.create();
-var intersectPlane_len = vec2.create();
-
-/**
- * @method intersectPlane
- * @private
- * @param  {Shape} shape
- * @param  {number} angle
- * @param  {array} position
- * @param  {Body} body
- */
-Ray.prototype.intersectPlane = function(shape, angle, position, body){
-    var from = this.from;
-    var to = this.to;
-    var direction = this._direction;
-
-    var planePointToFrom = intersectPlane_planePointToFrom;
-    var dir_scaled_with_t = intersectPlane_dir_scaled_with_t;
-    var hitPointWorld = intersectPlane_hitPointWorld;
-    var worldNormal = intersectPlane_worldNormal;
-    var len = intersectPlane_len;
-
-    // Get plane normal
-    vec2.set(worldNormal, 0, 1);
-    vec2.rotate(worldNormal, worldNormal, angle);
-
-    vec2.sub(len, from, position); //from.vsub(position, len);
-    var planeToFrom = vec2.dot(len, worldNormal); // len.dot(worldNormal);
-    vec2.sub(len, to, position); // to.vsub(position, len);
-    var planeToTo = vec2.dot(len, worldNormal); // len.dot(worldNormal);
-
-    if(planeToFrom * planeToTo > 0){
-        // "from" and "to" are on the same side of the plane... bail out
-        return;
-    }
-
-    if(vec2.distance(from, to) /* from.distanceTo(to) */ < planeToFrom){
-        return;
-    }
-
-    var n_dot_dir = vec2.dot(worldNormal, direction); // worldNormal.dot(direction);
-
-    // if (Math.abs(n_dot_dir) < this.precision) {
-    //     // No intersection
-    //     return;
-    // }
-
-    vec2.sub(planePointToFrom, from, position); // from.vsub(position, planePointToFrom);
-    var t = -vec2.dot(worldNormal, planePointToFrom) / n_dot_dir; // - worldNormal.dot(planePointToFrom) / n_dot_dir;
-    vec2.scale(dir_scaled_with_t, direction, t); // direction.scale(t, dir_scaled_with_t);
-    vec2.add(hitPointWorld, from, dir_scaled_with_t); // from.vadd(dir_scaled_with_t, hitPointWorld);
-
-    this.reportIntersection(worldNormal, hitPointWorld, shape, body, -1);
-};
-Ray.prototype[Shape.PLANE] = Ray.prototype.intersectPlane;
-
-// Returns 1 if the lines intersect, otherwise 0.
-function getLineSegmentsIntersection (out, p0, p1, p2, p3) {
-
-    var s1_x, s1_y, s2_x, s2_y;
-    s1_x = p1[0] - p0[0];
-    s1_y = p1[1] - p0[1];
-    s2_x = p3[0] - p2[0];
-    s2_y = p3[1] - p2[1];
-
-    var s, t;
-    s = (-s1_y * (p0[0] - p2[0]) + s1_x * (p0[1] - p2[1])) / (-s2_x * s1_y + s1_x * s2_y);
-    t = ( s2_x * (p0[1] - p2[1]) - s2_y * (p0[0] - p2[0])) / (-s2_x * s1_y + s1_x * s2_y);
-    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) { // Collision detected
-        var intX = p0[0] + (t * s1_x);
-        var intY = p0[1] + (t * s1_y);
-        out[0] = intX;
-        out[1] = intY;
-        return true;
-    }
-    return false; // No collision
-}
-
-var intersectConvex_rayStart = vec2.create();
-var intersectConvex_rayEnd = vec2.create();
-var intersectConvex_direction = vec2.create();
-var intersectConvex_p0 = vec2.create();
-var intersectConvex_p1 = vec2.create();
-var intersectConvex_intersection = vec2.create();
-var intersectConvex_normal = vec2.create();
-
-/**
- * @method intersectConvex
- * @private
- * @param  {Shape} shape
- * @param  {number} angle
- * @param  {array} position
- * @param  {Body} body
- */
-Ray.prototype.intersectConvex = function(shape, angle, position, body){
-    var from = this.from;
-    var to = this.to;
-    var direction = intersectConvex_direction;
-    var rayStart = intersectConvex_rayStart;
-    var rayEnd = intersectConvex_rayEnd;
-    var p0 = intersectConvex_p0;
-    var p1 = intersectConvex_p1;
-    var intersection = intersectConvex_intersection;
-    var normal = intersectConvex_normal;
-
-    // Transform the ray direction and start to local shape space
-    vec2.rotate(direction, this._direction, -angle);
-    body.toLocalFrame(rayStart, this.from);
-    body.toLocalFrame(rayEnd, this.to);
-
-    for (var i = 0; i < shape.vertices.length; i++) {
-        var q1 = shape.vertices[i];
-        var q2 = shape.vertices[(i+1)%shape.vertices.length];
-        if(getLineSegmentsIntersection(intersection, rayStart, rayEnd, q1, q2)){
-            // Convert the intersection point to world
-            body.toWorldFrame(intersection, intersection);
-            vec2.sub(normal, shape.vertices[(i+1)%shape.vertices.length], shape.vertices[i]);
-            vec2.rotate(normal, normal, -Math.PI / 2 + angle);
-            vec2.normalize(normal, normal);
-            this.reportIntersection(normal, intersection, shape, body, i);
-        }
-    }
-};
-Ray.prototype[Shape.CONVEX] = Ray.prototype.intersectConvex;
-
-var Ray_intersectSphere_intersectionPoint = vec2.create();
-var Ray_intersectSphere_normal = vec2.create();
-Ray.prototype.intersectCircle = function(shape, angle, position, body){
-    var from = this.from,
-        to = this.to,
-        r = shape.radius;
-
-    var a = Math.pow(to[0] - from[0], 2) + Math.pow(to[1] - from[1], 2);
-    var b = 2 * ((to[0] - from[0]) * (from[0] - position[0]) + (to[1] - from[1]) * (from[1] - position[1]));
-    var c = Math.pow(from[0] - position[0], 2) + Math.pow(from[1] - position[1], 2) - Math.pow(r, 2);
-
-    var delta = Math.pow(b, 2) - 4 * a * c;
-
-    var intersectionPoint = Ray_intersectSphere_intersectionPoint;
-    var normal = Ray_intersectSphere_normal;
-
-    if(delta < 0){
-        // No intersection
-        return;
-
-    } else if(delta === 0){
-        // single intersection point
-        vec2.lerp(intersectionPoint, from, to, delta);
-
-        vec2.sub(normal, intersectionPoint, position);
-        vec2.normalize(normal,normal);
-
-        this.reportIntersection(normal, intersectionPoint, shape, body, -1);
-
-    } else {
-        var sqrtDelta = Math.sqrt(delta);
-        var inv2a = 1 / (2 * a);
-        var d1 = (- b - sqrtDelta) * inv2a;
-        var d2 = (- b + sqrtDelta) * inv2a;
-
-        if(d1 >= 0 && d1 <= 1){
-            vec2.lerp(intersectionPoint, from, to, d1);
-
-            vec2.sub(normal, intersectionPoint, position);
-            vec2.normalize(normal,normal);
-
-            this.reportIntersection(normal, intersectionPoint, shape, body, -1);
-
-            if(this.result._shouldStop){
-                return;
-            }
-        }
-
-        if(d2 >= 0 && d2 <= 1){
-            vec2.lerp(intersectionPoint, from, to, d2);
-
-            vec2.sub(normal, intersectionPoint, position);
-            vec2.normalize(normal,normal);
-
-            this.reportIntersection(normal, intersectionPoint, shape, body, -1);
-        }
-    }
-};
-Ray.prototype[Shape.CIRCLE] = Ray.prototype.intersectCircle;
 
 /**
  * Get the AABB of the ray.
@@ -527,64 +213,58 @@ Ray.prototype[Shape.CIRCLE] = Ray.prototype.intersectCircle;
 Ray.prototype.getAABB = function(result){
     var to = this.to;
     var from = this.from;
-    result.lowerBound[0] = Math.min(to[0], from[0]);
-    result.lowerBound[1] = Math.min(to[1], from[1]);
-    result.upperBound[0] = Math.max(to[0], from[0]);
-    result.upperBound[1] = Math.max(to[1], from[1]);
+    vec2.set(
+        result.lowerBound,
+        Math.min(to[0], from[0]),
+        Math.min(to[1], from[1])
+    );
+    vec2.set(
+        result.upperBound,
+        Math.max(to[0], from[0]),
+        Math.max(to[1], from[1])
+    );
 };
 
 /**
  * @method reportIntersection
  * @private
+ * @param  {number} fraction
  * @param  {array} normal
- * @param  {array} hitPointWorld
- * @param  {Shape} shape
- * @param  {Body} body
+ * @param  {number} [faceIndex=-1]
  * @return {boolean} True if the intersections should continue
  */
-Ray.prototype.reportIntersection = function(normal, hitPointWorld, shape, body, hitFaceIndex){
-    var from = this.from;
-    var to = this.to;
-    var distance = vec2.distance(from, hitPointWorld); // from.distanceTo(hitPointWorld);
-    var result = this.result;
+Ray.prototype.reportIntersection = function(result, fraction, normal, faceIndex){
+    var shape = this._currentShape;
+    var body = this._currentBody;
 
     // Skip back faces?
-    if(this.skipBackfaces && /* normal.dot(this._direction) */ vec2.dot(normal, this._direction) > 0){
+    if(this.skipBackfaces && vec2.dot(normal, this.direction) > 0){
         return;
     }
 
-    result.hitFaceIndex = typeof(hitFaceIndex) !== 'undefined' ? hitFaceIndex : -1;
-
     switch(this.mode){
+
     case Ray.ALL:
-        this.hasHit = true;
         result.set(
-            from,
-            to,
             normal,
-            hitPointWorld,
             shape,
             body,
-            distance
+            fraction,
+            faceIndex
         );
-        result.hasHit = true;
         this.callback(result);
         break;
 
     case Ray.CLOSEST:
 
         // Store if closer than current closest
-        if(distance < result.distance || !result.hasHit){
-            this.hasHit = true;
-            result.hasHit = true;
+        if(fraction < result.fraction || !result.hasHit()){
             result.set(
-                from,
-                to,
                 normal,
-                hitPointWorld,
                 shape,
                 body,
-                distance
+                fraction,
+                faceIndex
             );
         }
         break;
@@ -592,36 +272,29 @@ Ray.prototype.reportIntersection = function(normal, hitPointWorld, shape, body, 
     case Ray.ANY:
 
         // Report and stop.
-        this.hasHit = true;
-        result.hasHit = true;
         result.set(
-            from,
-            to,
             normal,
-            hitPointWorld,
             shape,
             body,
-            distance
+            fraction,
+            faceIndex
         );
-        result._shouldStop = true;
         break;
     }
 };
 
 var v0 = vec2.create(),
     intersect = vec2.create();
-function distanceFromIntersection(from, direction, position) {
+function distanceFromIntersectionSquared(from, direction, position) {
 
     // v0 is vector from from to position
-    vec2.sub(v0, position, from); // position.vsub(from,v0);
-    var dot = vec2.dot(v0, direction); // v0.dot(direction);
+    vec2.sub(v0, position, from);
+    var dot = vec2.dot(v0, direction);
 
-    // intersect = direction*dot + from
-    vec2.scale(intersect, direction, dot); //direction.mult(dot,intersect);
-    vec2.add(intersect, intersect, from); // intersect.vadd(from, intersect);
+    // intersect = direction * dot + from
+    vec2.scale(intersect, direction, dot);
+    vec2.add(intersect, intersect, from);
 
-    var distance = vec2.distance(position, intersect); // position.distanceTo(intersect);
-
-    return distance;
+    return vec2.squaredDistance(position, intersect);
 }
 

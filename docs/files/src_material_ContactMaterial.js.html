@@ -17,7 +17,7 @@
                 <h1><img src="../assets/css/logo.png" title="p2.js" width="117" height="52"></h1>
         </div>
         <div class="yui3-u-1-4 version">
-            <em>API Docs for: 0.6.1</em>
+            <em>API Docs for: 0.7.1</em>
         </div>
     </div>
     <div id="bd" class="yui3-g">
@@ -41,6 +41,7 @@
                                 <li><a href="../classes/AABB.html">AABB</a></li>
                                 <li><a href="../classes/AngleLockEquation.html">AngleLockEquation</a></li>
                                 <li><a href="../classes/Body.html">Body</a></li>
+                                <li><a href="../classes/Box.html">Box</a></li>
                                 <li><a href="../classes/Broadphase.html">Broadphase</a></li>
                                 <li><a href="../classes/Capsule.html">Capsule</a></li>
                                 <li><a href="../classes/Circle.html">Circle</a></li>
@@ -53,7 +54,6 @@
                                 <li><a href="../classes/EventEmitter.html">EventEmitter</a></li>
                                 <li><a href="../classes/FrictionEquation.html">FrictionEquation</a></li>
                                 <li><a href="../classes/GearConstraint.html">GearConstraint</a></li>
-                                <li><a href="../classes/GridBroadphase.html">GridBroadphase</a></li>
                                 <li><a href="../classes/GSSolver.html">GSSolver</a></li>
                                 <li><a href="../classes/Heightfield.html">Heightfield</a></li>
                                 <li><a href="../classes/Island.html">Island</a></li>
@@ -65,6 +65,7 @@
                                 <li><a href="../classes/Material.html">Material</a></li>
                                 <li><a href="../classes/NaiveBroadphase.html">NaiveBroadphase</a></li>
                                 <li><a href="../classes/Narrowphase.html">Narrowphase</a></li>
+                                <li><a href="../classes/Object pooling utility..html">Object pooling utility.</a></li>
                                 <li><a href="../classes/OverlapKeeper.html">OverlapKeeper</a></li>
                                 <li><a href="../classes/OverlapKeeperRecord.html">OverlapKeeperRecord</a></li>
                                 <li><a href="../classes/Particle.html">Particle</a></li>
@@ -72,18 +73,20 @@
                                 <li><a href="../classes/PrismaticConstraint.html">PrismaticConstraint</a></li>
                                 <li><a href="../classes/Ray.html">Ray</a></li>
                                 <li><a href="../classes/RaycastResult.html">RaycastResult</a></li>
-                                <li><a href="../classes/Rectangle.html">Rectangle</a></li>
                                 <li><a href="../classes/RevoluteConstraint.html">RevoluteConstraint</a></li>
                                 <li><a href="../classes/RotationalLockEquation.html">RotationalLockEquation</a></li>
+                                <li><a href="../classes/.html"></a></li>
                                 <li><a href="../classes/RotationalSpring.html">RotationalSpring</a></li>
                                 <li><a href="../classes/RotationalVelocityEquation.html">RotationalVelocityEquation</a></li>
                                 <li><a href="../classes/SAPBroadphase.html">SAPBroadphase</a></li>
                                 <li><a href="../classes/Shape.html">Shape</a></li>
                                 <li><a href="../classes/Solver.html">Solver</a></li>
                                 <li><a href="../classes/Spring.html">Spring</a></li>
+                                <li><a href="../classes/TopDownVehicle.html">TopDownVehicle</a></li>
                                 <li><a href="../classes/TupleDictionary.html">TupleDictionary</a></li>
                                 <li><a href="../classes/Utils.html">Utils</a></li>
                                 <li><a href="../classes/vec2.html">vec2</a></li>
+                                <li><a href="../classes/WheelConstraint.html">WheelConstraint</a></li>
                                 <li><a href="../classes/World.html">World</a></li>
                             </ul>
                 
@@ -175,52 +178,55 @@ function ContactMaterial(materialA, materialB, options){
     this.materialB = materialB;
 
     /**
-     * Friction to use in the contact of these two materials
+     * Friction coefficient to use in the contact of these two materials. Friction = 0 will make the involved objects super slippery, and friction = 1 will make it much less slippery. A friction coefficient larger than 1 will allow for very large friction forces, which can be convenient for preventing car tires not slip on the ground.
      * @property friction
      * @type {Number}
+     * @default 0.3
      */
-    this.friction    =  typeof(options.friction)    !== &quot;undefined&quot; ?   Number(options.friction)    : 0.3;
+    this.friction = typeof(options.friction) !== &quot;undefined&quot; ? Number(options.friction) : 0.3;
 
     /**
-     * Restitution to use in the contact of these two materials
+     * Restitution, or &quot;bounciness&quot; to use in the contact of these two materials. A restitution of 0 will make no bounce, while restitution=1 will approximately bounce back with the same velocity the object came with.
      * @property restitution
      * @type {Number}
+     * @default 0
      */
-    this.restitution =  typeof(options.restitution) !== &quot;undefined&quot; ?   Number(options.restitution) : 0.0;
+    this.restitution = typeof(options.restitution) !== &quot;undefined&quot; ? Number(options.restitution) : 0;
 
     /**
-     * Stiffness of the resulting ContactEquation that this ContactMaterial generate
+     * Hardness of the contact. Less stiffness will make the objects penetrate more, and will make the contact act more like a spring than a contact force. Default value is {{#crossLink &quot;Equation/DEFAULT_STIFFNESS:property&quot;}}Equation.DEFAULT_STIFFNESS{{/crossLink}}.
      * @property stiffness
      * @type {Number}
      */
-    this.stiffness =            typeof(options.stiffness)           !== &quot;undefined&quot; ?   Number(options.stiffness)   : Equation.DEFAULT_STIFFNESS;
+    this.stiffness = typeof(options.stiffness) !== &quot;undefined&quot; ? Number(options.stiffness) : Equation.DEFAULT_STIFFNESS;
 
     /**
-     * Relaxation of the resulting ContactEquation that this ContactMaterial generate
+     * Relaxation of the resulting ContactEquation that this ContactMaterial generate. Default value is {{#crossLink &quot;Equation/DEFAULT_RELAXATION:property&quot;}}Equation.DEFAULT_RELAXATION{{/crossLink}}.
      * @property relaxation
      * @type {Number}
      */
-    this.relaxation =           typeof(options.relaxation)          !== &quot;undefined&quot; ?   Number(options.relaxation)  : Equation.DEFAULT_RELAXATION;
+    this.relaxation = typeof(options.relaxation) !== &quot;undefined&quot; ? Number(options.relaxation) : Equation.DEFAULT_RELAXATION;
 
     /**
-     * Stiffness of the resulting FrictionEquation that this ContactMaterial generate
+     * Stiffness of the resulting friction force. For most cases, the value of this property should be a large number. I cannot think of any case where you would want less frictionStiffness. Default value is {{#crossLink &quot;Equation/DEFAULT_STIFFNESS:property&quot;}}Equation.DEFAULT_STIFFNESS{{/crossLink}}.
      * @property frictionStiffness
      * @type {Number}
      */
-    this.frictionStiffness =    typeof(options.frictionStiffness)   !== &quot;undefined&quot; ?   Number(options.frictionStiffness)   : Equation.DEFAULT_STIFFNESS;
+    this.frictionStiffness = typeof(options.frictionStiffness) !== &quot;undefined&quot; ? Number(options.frictionStiffness) : Equation.DEFAULT_STIFFNESS;
 
     /**
-     * Relaxation of the resulting FrictionEquation that this ContactMaterial generate
+     * Relaxation of the resulting friction force. The default value should be good for most simulations. Default value is {{#crossLink &quot;Equation/DEFAULT_RELAXATION:property&quot;}}Equation.DEFAULT_RELAXATION{{/crossLink}}.
      * @property frictionRelaxation
      * @type {Number}
      */
-    this.frictionRelaxation =   typeof(options.frictionRelaxation)  !== &quot;undefined&quot; ?   Number(options.frictionRelaxation)  : Equation.DEFAULT_RELAXATION;
+    this.frictionRelaxation = typeof(options.frictionRelaxation) !== &quot;undefined&quot; ? Number(options.frictionRelaxation)  : Equation.DEFAULT_RELAXATION;
 
     /**
      * Will add surface velocity to this material. If bodyA rests on top if bodyB, and the surface velocity is positive, bodyA will slide to the right.
      * @property {Number} surfaceVelocity
+     * @default 0
      */
-    this.surfaceVelocity = typeof(options.surfaceVelocity)    !== &quot;undefined&quot; ?   Number(options.surfaceVelocity)    : 0;
+    this.surfaceVelocity = typeof(options.surfaceVelocity) !== &quot;undefined&quot; ? Number(options.surfaceVelocity) : 0;
 
     /**
      * Offset to be set on ContactEquations. A positive value will make the bodies penetrate more into each other. Can be useful in scenes where contacts need to be more persistent, for example when stacking. Aka &quot;cure for nervous contacts&quot;.

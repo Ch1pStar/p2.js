@@ -48,7 +48,7 @@ vec2.crossLength = function(a,b){
  * @param  {Array} out
  * @param  {Array} vec
  * @param  {Number} zcomp
- * @return {Number}
+ * @return {Array}
  */
 vec2.crossVZ = function(out, vec, zcomp){
     vec2.rotate(out,vec,-Math.PI/2);// Rotate according to the right hand rule
@@ -63,7 +63,7 @@ vec2.crossVZ = function(out, vec, zcomp){
  * @param  {Array} out
  * @param  {Number} zcomp
  * @param  {Array} vec
- * @return {Number}
+ * @return {Array}
  */
 vec2.crossZV = function(out, zcomp, vec){
     vec2.rotate(out,vec,Math.PI/2); // Rotate according to the right hand rule
@@ -78,6 +78,7 @@ vec2.crossZV = function(out, zcomp, vec){
  * @param  {Array} out
  * @param  {Array} a
  * @param  {Number} angle
+ * @return {Array}
  */
 vec2.rotate = function(out,a,angle){
     if(angle !== 0){
@@ -91,6 +92,7 @@ vec2.rotate = function(out,a,angle){
         out[0] = a[0];
         out[1] = a[1];
     }
+    return out;
 };
 
 /**
@@ -100,12 +102,14 @@ vec2.rotate = function(out,a,angle){
  * @param  {Array} out
  * @param  {Array} a
  * @param  {Number} angle
+ * @return {Array}
  */
 vec2.rotate90cw = function(out, a) {
     var x = a[0];
     var y = a[1];
     out[0] = y;
     out[1] = -x;
+    return out;
 };
 
 /**
@@ -115,11 +119,16 @@ vec2.rotate90cw = function(out, a) {
  * @param  {Array} worldPoint
  * @param  {Array} framePosition
  * @param  {Number} frameAngle
+ * @return {Array}
  */
 vec2.toLocalFrame = function(out, worldPoint, framePosition, frameAngle){
-    vec2.copy(out, worldPoint);
-    vec2.sub(out, out, framePosition);
-    vec2.rotate(out, out, -frameAngle);
+    var c = Math.cos(-frameAngle),
+        s = Math.sin(-frameAngle),
+        x = worldPoint[0] - framePosition[0],
+        y = worldPoint[1] - framePosition[1];
+    out[0] = c * x - s * y;
+    out[1] = s * x + c * y;
+    return out;
 };
 
 /**
@@ -131,9 +140,14 @@ vec2.toLocalFrame = function(out, worldPoint, framePosition, frameAngle){
  * @param  {Number} frameAngle
  */
 vec2.toGlobalFrame = function(out, localPoint, framePosition, frameAngle){
-    vec2.copy(out, localPoint);
-    vec2.rotate(out, out, frameAngle);
-    vec2.add(out, out, framePosition);
+    var c = Math.cos(frameAngle),
+        s = Math.sin(frameAngle),
+        x = localPoint[0],
+        y = localPoint[1],
+        addX = framePosition[0],
+        addY = framePosition[1];
+    out[0] = c * x - s * y + addX;
+    out[1] = s * x + c * y + addY;
 };
 
 /**
@@ -142,21 +156,26 @@ vec2.toGlobalFrame = function(out, localPoint, framePosition, frameAngle){
  * @param  {Array} out
  * @param  {Array} worldVector
  * @param  {Number} frameAngle
+ * @return {Array}
  */
 vec2.vectorToLocalFrame = function(out, worldVector, frameAngle){
-    vec2.rotate(out, worldVector, -frameAngle);
+    var c = Math.cos(-frameAngle),
+        s = Math.sin(-frameAngle),
+        x = worldVector[0],
+        y = worldVector[1];
+    out[0] = c*x -s*y;
+    out[1] = s*x +c*y;
+    return out;
 };
 
 /**
- * Transform a point position to global frame.
- * @method toGlobalFrame
+ * Transform a vector to global frame.
+ * @method vectorToGlobalFrame
  * @param  {Array} out
  * @param  {Array} localVector
  * @param  {Number} frameAngle
  */
-vec2.vectorToGlobalFrame = function(out, localVector, frameAngle){
-    vec2.rotate(out, localVector, frameAngle);
-};
+vec2.vectorToGlobalFrame = vec2.rotate;
 
 /**
  * Compute centroid of a triangle spanned by vectors a,b,c. See http://easycalculation.com/analytical/learn-centroid.php
@@ -166,7 +185,7 @@ vec2.vectorToGlobalFrame = function(out, localVector, frameAngle){
  * @param  {Array} a
  * @param  {Array} b
  * @param  {Array} c
- * @return  {Array} The out object
+ * @return  {Array} a new 2D vector
  */
 vec2.centroid = function(out, a, b, c){
     vec2.add(out, a, b);
@@ -357,13 +376,6 @@ vec2.distance = function(a, b) {
 };
 
 /**
- * Alias for vec2.distance
- * @static
- * @method dist
- */
-vec2.dist = vec2.distance;
-
-/**
  * Calculates the squared euclidian distance between two vec2's
  * @static
  * @method squaredDistance
@@ -376,13 +388,6 @@ vec2.squaredDistance = function(a, b) {
         y = b[1] - a[1];
     return x*x + y*y;
 };
-
-/**
- * Alias for vec2.squaredDistance
- * @static
- * @method sqrDist
- */
-vec2.sqrDist = vec2.squaredDistance;
 
 /**
  * Calculates the length of a vec2
@@ -398,13 +403,6 @@ vec2.length = function (a) {
 };
 
 /**
- * Alias for vec2.length
- * @method len
- * @static
- */
-vec2.len = vec2.length;
-
-/**
  * Calculates the squared length of a vec2
  * @static
  * @method squaredLength
@@ -416,13 +414,6 @@ vec2.squaredLength = function (a) {
         y = a[1];
     return x*x + y*y;
 };
-
-/**
- * Alias for vec2.squaredLength
- * @static
- * @method sqrLen
- */
-vec2.sqrLen = vec2.squaredLength;
 
 /**
  * Negates the components of a vec2
@@ -482,10 +473,80 @@ vec2.str = function (a) {
     return 'vec2(' + a[0] + ', ' + a[1] + ')';
 };
 
+/**
+ * Linearly interpolate/mix two vectors.
+ * @static
+ * @method lerp
+ * @param {Array} out
+ * @param {Array} a First vector
+ * @param {Array} b Second vector
+ * @param {number} t Lerp factor
+ */
 vec2.lerp = function (out, a, b, t) {
     var ax = a[0],
         ay = a[1];
     out[0] = ax + t * (b[0] - ax);
     out[1] = ay + t * (b[1] - ay);
     return out;
+};
+
+/**
+ * Reflect a vector along a normal.
+ * @static
+ * @method reflect
+ * @param {Array} out
+ * @param {Array} vector
+ * @param {Array} normal
+ */
+vec2.reflect = function(out, vector, normal){
+    var dot = vector[0] * normal[0] + vector[1] * normal[1];
+    out[0] = vector[0] - 2 * normal[0] * dot;
+    out[1] = vector[1] - 2 * normal[1] * dot;
+};
+
+/**
+ * Get the intersection point between two line segments.
+ * @static
+ * @method getLineSegmentsIntersection
+ * @param  {Array} out
+ * @param  {Array} p0
+ * @param  {Array} p1
+ * @param  {Array} p2
+ * @param  {Array} p3
+ * @return {boolean} True if there was an intersection, otherwise false.
+ */
+vec2.getLineSegmentsIntersection = function(out, p0, p1, p2, p3) {
+    var t = vec2.getLineSegmentsIntersectionFraction(p0, p1, p2, p3);
+    if(t < 0){
+        return false;
+    } else {
+        out[0] = p0[0] + (t * (p1[0] - p0[0]));
+        out[1] = p0[1] + (t * (p1[1] - p0[1]));
+        return true;
+    }
+};
+
+/**
+ * Get the intersection fraction between two line segments. If successful, the intersection is at p0 + t * (p1 - p0)
+ * @static
+ * @method getLineSegmentsIntersectionFraction
+ * @param  {Array} p0
+ * @param  {Array} p1
+ * @param  {Array} p2
+ * @param  {Array} p3
+ * @return {number} A number between 0 and 1 if there was an intersection, otherwise -1.
+ */
+vec2.getLineSegmentsIntersectionFraction = function(p0, p1, p2, p3) {
+    var s1_x = p1[0] - p0[0];
+    var s1_y = p1[1] - p0[1];
+    var s2_x = p3[0] - p2[0];
+    var s2_y = p3[1] - p2[1];
+
+    var s, t;
+    s = (-s1_y * (p0[0] - p2[0]) + s1_x * (p0[1] - p2[1])) / (-s2_x * s1_y + s1_x * s2_y);
+    t = ( s2_x * (p0[1] - p2[1]) - s2_y * (p0[0] - p2[0])) / (-s2_x * s1_y + s1_x * s2_y);
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) { // Collision detected
+        return t;
+    }
+    return -1; // No collision
 };
