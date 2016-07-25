@@ -1,6 +1,5 @@
 var vec2 = require('../math/vec2')
-,   Equation = require('./Equation')
-,   Utils = require('../utils/Utils');
+,   Equation = require('./Equation');
 
 module.exports = FrictionEquation;
 
@@ -39,7 +38,7 @@ function FrictionEquation(bodyA, bodyB, slipForce){
     this.t = vec2.create();
 
     /**
-     * A ContactEquation connected to this friction. The contact equations can be used to rescale the max force for the friction. If more than one contact equation is given, then the max force can be set to the average.
+     * ContactEquations connected to this friction equation. The contact equations can be used to rescale the max force for the friction. If more than one contact equation is given, then the max force can be set to the average.
      * @property contactEquations
      * @type {ContactEquation}
      */
@@ -92,9 +91,7 @@ FrictionEquation.prototype.getSlipForce = function(){
 };
 
 FrictionEquation.prototype.computeB = function(a,b,h){
-    var bi = this.bodyA,
-        bj = this.bodyB,
-        ri = this.contactPointA,
+    var ri = this.contactPointA,
         rj = this.contactPointB,
         t = this.t,
         G = this.G;

@@ -1,13 +1,30 @@
 var AABB = require(__dirname + '/../../src/collision/AABB');
+var Ray = require(__dirname + '/../../src/collision/Ray');
 var vec2 = require(__dirname + '/../../src/math/vec2');
 
 exports.construct = function(test){
-    // STUB
+    var aabb = new AABB({
+        lowerBound: [-1, -2],
+        upperBound: [1, 2]
+    });
+    test.equal(aabb.lowerBound[0], -1);
+    test.equal(aabb.lowerBound[1], -2);
+    test.equal(aabb.upperBound[0], 1);
+    test.equal(aabb.upperBound[1], 2);
     test.done();
 };
 
 exports.copy = function(test){
-    // STUB
+    var aabb = new AABB({
+        lowerBound: [-1, -2],
+        upperBound: [1, 2]
+    });
+    var aabb2 = new AABB();
+    aabb2.copy(aabb);
+    test.equal(aabb2.lowerBound[0], -1);
+    test.equal(aabb2.lowerBound[1], -2);
+    test.equal(aabb2.upperBound[0], 1);
+    test.equal(aabb2.upperBound[1], 2);
     test.done();
 };
 
@@ -49,6 +66,32 @@ exports.overlaps = function(test){
     vec2.set(b.upperBound, -2,  0.5);
     test.ok(!a.overlaps(b),'should detect translated');
 
+    test.done();
+};
+
+exports.containsPoint = function(test){
+    var aabb = new AABB({
+        lowerBound: [-1, -1],
+        upperBound: [1, 1]
+    });
+    test.ok(aabb.containsPoint([0,0]));
+    test.ok(aabb.containsPoint([1,1]));
+    test.ok(aabb.containsPoint([-1,-1]));
+    test.ok(!aabb.containsPoint([2,2]));
+    test.done();
+};
+
+exports.overlapsRay = function(test){
+    var aabb = new AABB({
+        upperBound: [1, 1],
+        lowerBound: [-1, -1]
+    });
+    var ray = new Ray({
+        from: [-2, 0],
+        to: [0, 0]
+    });
+    var result = aabb.overlapsRay(ray);
+    test.equal(result, 0.5);
     test.done();
 };
 

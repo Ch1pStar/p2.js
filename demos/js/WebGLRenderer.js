@@ -146,6 +146,10 @@ WebGLRenderer.prototype.init = function(){
     this.aabbGraphics = new PIXI.Graphics();
     stage.addChild(this.aabbGraphics);
 
+    // Graphics object for pick
+    this.pickGraphics = new PIXI.Graphics();
+    stage.addChild(this.pickGraphics);
+
     stage.scale.x = 200; // Flip Y direction.
     stage.scale.y = -200;
 
@@ -468,40 +472,84 @@ WebGLRenderer.prototype.drawCapsule = function(g, x, y, angle, len, radius, colo
     color = typeof(color)==="undefined" ? 0x000000 : color;
     g.lineStyle(lineWidth, color, 1);
 
+    var vec2 = p2.vec2;
+
     // Draw circles at ends
     var c = Math.cos(angle);
     var s = Math.sin(angle);
+    var hl = len / 2;
     g.beginFill(fillColor, isSleeping ? this.sleepOpacity : 1.0);
-    g.drawCircle(-len/2*c + x, -len/2*s + y, radius);
-    g.drawCircle( len/2*c + x,  len/2*s + y, radius);
+    var localPos = vec2.fromValues(x, y);
+    var p0 = vec2.fromValues(-hl, 0);
+    var p1 = vec2.fromValues(hl, 0);
+    vec2.rotate(p0, p0, angle);
+    vec2.rotate(p1, p1, angle);
+    vec2.add(p0, p0, localPos);
+    vec2.add(p1, p1, localPos);
+    g.drawCircle(p0[0], p0[1], radius);
+    g.drawCircle(p1[0], p1[1], radius);
     g.endFill();
 
     // Draw rectangle
+    var pp2 = vec2.create();
+    var p3 = vec2.create();
+    vec2.set(p0, -hl, radius);
+    vec2.set(p1, hl, radius);
+    vec2.set(pp2, hl, -radius);
+    vec2.set(p3, -hl, -radius);
+
+    vec2.rotate(p0, p0, angle);
+    vec2.rotate(p1, p1, angle);
+    vec2.rotate(pp2, pp2, angle);
+    vec2.rotate(p3, p3, angle);
+
+    vec2.add(p0, p0, localPos);
+    vec2.add(p1, p1, localPos);
+    vec2.add(pp2, pp2, localPos);
+    vec2.add(p3, p3, localPos);
+
     g.lineStyle(lineWidth, color, 0);
     g.beginFill(fillColor, isSleeping ? this.sleepOpacity : 1.0);
-    g.moveTo(-len/2*c + radius*s + x, -len/2*s + radius*c + y);
-    g.lineTo( len/2*c + radius*s + x,  len/2*s + radius*c + y);
-    g.lineTo( len/2*c - radius*s + x,  len/2*s - radius*c + y);
-    g.lineTo(-len/2*c - radius*s + x, -len/2*s - radius*c + y);
+    g.moveTo(p0[0], p0[1]);
+    g.lineTo(p1[0], p1[1]);
+    g.lineTo(pp2[0], pp2[1]);
+    g.lineTo(p3[0], p3[1]);
+    // g.lineTo( hl*c - radius*s + x,  hl*s - radius*c + y);
+    // g.lineTo(-hl*c - radius*s + x, -hl*s - radius*c + y);
     g.endFill();
 
     // Draw lines in between
-    g.lineStyle(lineWidth, color, 1);
-    g.moveTo(-len/2*c + radius*s + x, -len/2*s + radius*c + y);
-    g.lineTo( len/2*c + radius*s + x,  len/2*s + radius*c + y);
-    g.moveTo(-len/2*c - radius*s + x, -len/2*s - radius*c + y);
-    g.lineTo( len/2*c - radius*s + x,  len/2*s - radius*c + y);
+    for(var i=0; i<2; i++){
+        g.lineStyle(lineWidth, color, 1);
+        var sign = (i===0?1:-1);
+        vec2.set(p0, -hl, sign*radius);
+        vec2.set(p1, hl, sign*radius);
+        vec2.rotate(p0, p0, angle);
+        vec2.rotate(p1, p1, angle);
+        vec2.add(p0, p0, localPos);
+        vec2.add(p1, p1, localPos);
+        g.moveTo(p0[0], p0[1]);
+        g.lineTo(p1[0], p1[1]);
+    }
 
 };
 
-// Todo angle
 WebGLRenderer.prototype.drawRectangle = function(g,x,y,angle,w,h,color,fillColor,lineWidth,isSleeping){
-    lineWidth = typeof(lineWidth)==="number" ? lineWidth : 1;
-    color = typeof(color)==="number" ? color : 0xffffff;
-    fillColor = typeof(fillColor)==="number" ? fillColor : 0xffffff;
-    g.lineStyle(lineWidth);
-    g.beginFill(fillColor, isSleeping ? this.sleepOpacity : 1.0);
-    g.drawRect(x-w/2,y-h/2,w,h);
+    var path = [
+        [w / 2, h / 2],
+        [-w / 2, h / 2],
+        [-w / 2, -h / 2],
+        [w / 2, -h / 2],
+    ];
+
+    // Rotate and add position
+    for (var i = 0; i < path.length; i++) {
+        var v = path[i];
+        p2.vec2.rotate(v, v, angle);
+        p2.vec2.add(v, v, [x, y]);
+    }
+
+    this.drawPath(g,path,color,fillColor,lineWidth,isSleeping);
 };
 
 WebGLRenderer.prototype.drawConvex = function(g,verts,triangles,color,fillColor,lineWidth,debug,offset,isSleeping){
@@ -720,6 +768,24 @@ WebGLRenderer.prototype.render = function(){
         this.aabbGraphics.cleared = true;
     }
 
+    // Draw pick line
+    if(this.mouseConstraint){
+        var g = this.pickGraphics;
+        g.clear();
+        this.stage.removeChild(g);
+        this.stage.addChild(g);
+        g.lineStyle(this.lineWidth,0x000000,1);
+        var c = this.mouseConstraint;
+        var worldPivotB = p2.vec2.create();
+        c.bodyB.toWorldFrame(worldPivotB, c.pivotB);
+        g.moveTo(c.pivotA[0], c.pivotA[1]);
+        g.lineTo(worldPivotB[0], worldPivotB[1]);
+        g.cleared = false;
+    } else if(!this.pickGraphics.cleared){
+        this.pickGraphics.clear();
+        this.pickGraphics.cleared = true;
+    }
+
     if(this.followBody){
         app.centerCamera(this.followBody.interpolatedPosition[0], this.followBody.interpolatedPosition[1]);
     }
@@ -757,7 +823,6 @@ WebGLRenderer.prototype.drawRenderable = function(obj, graphics, color, lineColo
     graphics.drawnSleeping = false;
     graphics.drawnColor = color;
     graphics.drawnLineColor = lineColor;
-
     if(obj instanceof p2.Body && obj.shapes.length){
 
         var isSleeping = (obj.sleepState === p2.Body.SLEEPING);
@@ -773,10 +838,8 @@ WebGLRenderer.prototype.drawRenderable = function(obj, graphics, color, lineColo
         } else {
             for(var i=0; i<obj.shapes.length; i++){
                 var child = obj.shapes[i],
-                    offset = obj.shapeOffsets[i],
-                    angle = obj.shapeAngles[i];
-                offset = offset || zero;
-                angle = angle || 0;
+                    offset = child.position,
+                    angle = child.angle;
 
                 if(child instanceof p2.Circle){
                     this.drawCircle(graphics, offset[0], offset[1], angle, child.radius,color,lw,isSleeping);
@@ -791,7 +854,7 @@ WebGLRenderer.prototype.drawRenderable = function(obj, graphics, color, lineColo
                 } else if(child instanceof p2.Line){
                     WebGLRenderer.drawLine(graphics, offset, angle, child.length, lineColor, lw);
 
-                } else if(child instanceof p2.Rectangle){
+                } else if(child instanceof p2.Box){
                     this.drawRectangle(graphics, offset[0], offset[1], angle, child.width, child.height, lineColor, color, lw, isSleeping);
 
                 } else if(child instanceof p2.Capsule){
@@ -810,11 +873,11 @@ WebGLRenderer.prototype.drawRenderable = function(obj, graphics, color, lineColo
 
                 } else if(child instanceof p2.Heightfield){
                     var path = [[0,-100]];
-                    for(var j=0; j!==child.data.length; j++){
-                        var v = child.data[j];
+                    for(var j=0; j!==child.heights.length; j++){
+                        var v = child.heights[j];
                         path.push([j*child.elementWidth, v]);
                     }
-                    path.push([child.data.length*child.elementWidth,-100]);
+                    path.push([child.heights.length*child.elementWidth,-100]);
                     this.drawPath(graphics, path, lineColor, color, lw, isSleeping);
 
                 }

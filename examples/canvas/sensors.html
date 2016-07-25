@@ -13,7 +13,7 @@
       var w, h, canvas, ctx, world, circleBody, sensorBody;
 
       init();
-      animate();
+      requestAnimationFrame(animate);
 
       function init(){
 
@@ -28,14 +28,14 @@
         world = new p2.World({ gravity:[0,0] });
 
         // Add a circle
-        circleShape = new p2.Circle(1);
+        circleShape = new p2.Circle();
         circleBody = new p2.Body({ mass:1 });
         circleBody.damping = 0;
         circleBody.addShape(circleShape);
         world.addBody(circleBody);
 
         // Add a sensor circle
-        sensorShape = new p2.Circle(1);
+        sensorShape = new p2.Circle();
         sensorShape.sensor = true;
         sensorBody = new p2.Body();
         sensorBody.damping = 0;
@@ -67,14 +67,23 @@
         ctx.restore();
       }
 
+      var lastTime, timeStep = 1 / 60, maxSubSteps = 5;
+
       // Animation loop
-      function animate(){
+      function animate(time){
         requestAnimationFrame(animate);
 
-        circleBody.position[0] = 3*Math.sin(world.time);
-        world.step(1/60);
+        var dt = lastTime ? (time - lastTime) / 1000 : 0;
+        dt = Math.min(1 / 10, dt);
+        lastTime = time;
 
-        render();
+        circleBody.position[0] = 3*Math.sin(world.time);
+
+        // Move physics bodies forward in time
+        world.step(timeStep, dt, maxSubSteps);
+
+        // Render scene
+        render(time);
       }
 
     </script>

@@ -80,6 +80,7 @@ function Renderer(scenes, options){
 
     this.stateChangeEvent = { type : "stateChange", state:null };
 
+    this.mousePosition = p2.vec2.create();
 
     // Default collision masks for new shapes
     this.newShapeCollisionMask = 1;
@@ -592,7 +593,8 @@ Renderer.prototype.handleMouseDown = function(physicsPosition){
             this.world.addBody(this.nullBody);
             this.mouseConstraint = new p2.RevoluteConstraint(this.nullBody, b, {
                 localPivotA: physicsPosition,
-                localPivotB: localPoint
+                localPivotB: localPoint,
+                maxForce: 1000 * b.mass
             });
             this.world.addConstraint(this.mouseConstraint);
         } else {
@@ -632,6 +634,8 @@ Renderer.prototype.handleMouseDown = function(physicsPosition){
  * Should be called by subclasses whenever there's a mousedown event
  */
 Renderer.prototype.handleMouseMove = function(physicsPosition){
+    p2.vec2.copy(this.mousePosition, physicsPosition);
+
     var sampling = 0.4;
     switch(this.state){
     case Renderer.DEFAULT:
@@ -715,7 +719,7 @@ Renderer.prototype.handleMouseUp = function(physicsPosition){
         if(R > 0){
             // Create circle
             b = new p2.Body({ mass : 1, position : this.drawCircleCenter });
-            var circle = new p2.Circle(R);
+            var circle = new p2.Circle({ radius: R });
             b.addShape(circle);
             this.world.addBody(b);
         }
@@ -744,7 +748,7 @@ Renderer.prototype.handleMouseUp = function(physicsPosition){
                 mass : 1,
                 position : [this.drawRectStart[0] + width*0.5, this.drawRectStart[1] + height*0.5]
             });
-            var rectangleShape = new p2.Rectangle(width, height);
+            var rectangleShape = new p2.Box({ width: width, height:  height });
             b.addShape(rectangleShape);
             this.world.addBody(b);
         }
@@ -885,10 +889,8 @@ Renderer.zoomOutEvent = {
 };
 
 Renderer.prototype.setEquationParameters = function(){
-    this.world.setGlobalEquationParameters({
-        stiffness: this.settings.stiffness,
-        relaxation: this.settings.relaxation
-    });
+    this.world.setGlobalStiffness(this.settings.stiffness);
+    this.world.setGlobalRelaxation(this.settings.relaxation);
 };
 
 })(p2);
