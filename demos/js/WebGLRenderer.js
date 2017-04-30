@@ -48,6 +48,8 @@ function WebGLRenderer(scenes, options){
     this.springSprites = [];
     this.debugPolygons = false;
 
+    this.islandColors = {}; // id -> int
+
     Renderer.call(this,scenes,options);
 
     for(var key in settings){
@@ -77,7 +79,7 @@ function WebGLRenderer(scenes, options){
         var g = that.drawShapeGraphics;
         g.clear();
         var center = that.drawCircleCenter;
-        var R = p2.vec2.dist(center, that.drawCirclePoint);
+        var R = p2.vec2.distance(center, that.drawCirclePoint);
         that.drawCircle(g,center[0], center[1], 0, R,false, that.lineWidth);
     });
 
@@ -183,7 +185,7 @@ WebGLRenderer.prototype.init = function(){
             p2.vec2.set(stagePos, pos.x, pos.y);
             that.stagePositionToPhysics(physicsPosB, stagePos);
 
-            initPinchLength = p2.vec2.dist(physicsPosA, physicsPosB);
+            initPinchLength = p2.vec2.distance(physicsPosA, physicsPosB);
 
             var initScaleX = stage.scale.x;
             var initScaleY = stage.scale.y;
@@ -230,7 +232,7 @@ WebGLRenderer.prototype.init = function(){
             p2.vec2.set(stagePos, pos.x, pos.y);
             that.stagePositionToPhysics(physicsPosB, stagePos);
 
-            var pinchLength = p2.vec2.dist(physicsPosA, physicsPosB);
+            var pinchLength = p2.vec2.distance(physicsPosA, physicsPosB);
 
             // Get center
             p2.vec2.add(physicsPosA, physicsPosA, physicsPosB);
@@ -574,6 +576,25 @@ WebGLRenderer.prototype.drawConvex = function(g,verts,triangles,color,fillColor,
             g.lineTo(verts[0][0],verts[0][1]);
         }
     } else {
+
+        // triangles
+        // var centroid = p2.vec2.create();
+        // for(var i=0; i<triangles.length; i++){
+        //     var v0 = verts[triangles[i][0]],
+        //         v1 = verts[triangles[i][1]],
+        //         v2 = verts[triangles[i][2]];
+        //     g.lineStyle(lineWidth, 0x000000, 1);
+        //     g.moveTo(v0[0],v0[1]);
+        //     g.lineTo(v1[0],v1[1]);
+        //     g.lineTo(v2[0],v2[1]);
+        //     g.lineTo(v0[0],v0[1]);
+
+        //     // triangle centroid
+        //     p2.vec2.centroid(centroid,v0,v1,v2);
+        //     g.drawCircle(centroid[0],centroid[1],lineWidth*2);
+        // }
+
+        // convexes
         var colors = [0xff0000,0x00ff00,0x0000ff];
         for(var i=0; i!==verts.length+1; i++){
             var v0 = verts[i%verts.length],
@@ -588,7 +609,7 @@ WebGLRenderer.prototype.drawConvex = function(g,verts,triangles,color,fillColor,
             g.drawCircle(x0,y0,lineWidth*2);
         }
 
-        g.lineStyle(lineWidth, 0x000000, 1);
+        g.lineStyle(lineWidth, 0xff0000, 1);
         g.drawCircle(offset[0],offset[1],lineWidth*2);
     }
 };
@@ -664,14 +685,15 @@ WebGLRenderer.prototype.render = function(){
         this.updateSpriteTransform(this.sprites[i],this.bodies[i]);
     }
 
-    // Update graphics if the body changed sleepState
+    // Update graphics if the body changed sleepState or island
     for(var i=0; i!==this.bodies.length; i++){
-        var isSleeping = (this.bodies[i].sleepState===p2.Body.SLEEPING);
-        var sprite = this.sprites[i];
         var body = this.bodies[i];
-        if(sprite.drawnSleeping !== isSleeping){
+        var isSleeping = (body.sleepState===p2.Body.SLEEPING);
+        var sprite = this.sprites[i];
+        var islandColor = this.getIslandColor(body);
+        if(sprite.drawnSleeping !== isSleeping || sprite.drawnColor !== islandColor){
             sprite.clear();
-            this.drawRenderable(body, sprite, sprite.drawnColor, sprite.drawnLineColor);
+            this.drawRenderable(body, sprite, islandColor, sprite.drawnLineColor);
         }
     }
 
@@ -869,7 +891,7 @@ WebGLRenderer.prototype.drawRenderable = function(obj, graphics, color, lineColo
                         p2.vec2.rotate(vrot, v, angle);
                         verts.push([(vrot[0]+offset[0]), (vrot[1]+offset[1])]);
                     }
-                    this.drawConvex(graphics, verts, child.triangles, lineColor, color, lw, this.debugPolygons,[offset[0],-offset[1]], isSleeping);
+                    this.drawConvex(graphics, verts, child.triangles, lineColor, color, lw, this.debugPolygons, offset, isSleeping);
 
                 } else if(child instanceof p2.Heightfield){
                     var path = [[0,-100]];
@@ -890,26 +912,40 @@ WebGLRenderer.prototype.drawRenderable = function(obj, graphics, color, lineColo
     }
 };
 
+WebGLRenderer.prototype.getIslandColor = function(body){
+    var islandColors = this.islandColors;
+    if(body.islandId === -1){
+        color = 0xdddddd; // Gray for static objects
+    } else if(islandColors[body.islandId]){
+        color = islandColors[body.islandId];
+    } else {
+        color = islandColors[body.islandId] = parseInt(randomPastelHex(),16);
+    }
+    return color;
+};
+
 WebGLRenderer.prototype.addRenderable = function(obj){
     var lw = this.lineWidth;
 
     // Random color
-    var color = parseInt(randomPastelHex(),16),
-        lineColor = 0x000000;
+    var lineColor = 0x000000;
 
     var zero = [0,0];
 
     var sprite = new PIXI.Graphics();
     if(obj instanceof p2.Body && obj.shapes.length){
 
+        var color = this.getIslandColor(obj);
         this.drawRenderable(obj, sprite, color, lineColor);
         this.sprites.push(sprite);
         this.stage.addChild(sprite);
 
     } else if(obj instanceof p2.Spring){
+
         this.drawRenderable(obj, sprite, 0x000000, lineColor);
         this.springSprites.push(sprite);
         this.stage.addChild(sprite);
+
     }
 };
 

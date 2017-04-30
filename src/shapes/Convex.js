@@ -13,7 +13,6 @@ module.exports = Convex;
  * @extends Shape
  * @param {object} [options] (Note that this options object will be passed on to the {{#crossLink "Shape"}}{{/crossLink}} constructor.)
  * @param {Array} [options.vertices] An array of vertices that span this shape. Vertices are given in counter-clockwise (CCW) direction.
- * @param {Array} [options.axes] An array of unit length vectors, representing the symmetry axes in the convex.
  * @example
  *     var body = new Body({ mass: 1 });
  *     var vertices = [[-1,-1], [1,-1], [1,1], [-1,1]];
@@ -23,13 +22,6 @@ module.exports = Convex;
  *     body.addShape(convexShape);
  */
 function Convex(options){
-    if(Array.isArray(arguments[0])){
-        options = {
-            vertices: arguments[0],
-            axes: arguments[1]
-        };
-        console.warn('The Convex constructor signature has changed. Please use the following format: new Convex({ vertices: [...], ... })');
-    }
     options = options ? shallowClone(options) : {};
 
     /**
@@ -55,40 +47,6 @@ function Convex(options){
         normals.push(vec2.create());
     }
     this.updateNormals();
-
-    /**
-     * Axes defined in the local frame.
-     * @property axes
-     * @type {Array}
-     */
-    this.axes = [];
-
-    if(options.axes){
-
-        // Copy the axes given
-        for(var i=0; i < options.axes.length; i++){
-            this.axes.push(vec2.clone(options.axes[i]));
-        }
-
-    } else {
-
-        // Construct axes from the vertex data
-        for(var i = 0; i < this.vertices.length; i++){
-            // Get the world edge
-            var worldPoint0 = this.vertices[i];
-            var worldPoint1 = this.vertices[(i+1) % this.vertices.length];
-
-            var normal = vec2.create();
-            vec2.sub(normal, worldPoint1, worldPoint0);
-
-            // Get normal - just rotate 90 degrees since vertices are given in CCW
-            vec2.rotate90cw(normal, normal);
-            vec2.normalize(normal, normal);
-
-            this.axes.push(normal);
-        }
-
-    }
 
     /**
      * The center of mass of the Convex
@@ -140,7 +98,7 @@ Convex.prototype.updateNormals = function(){
         var worldPoint1 = vertices[(i+1) % vertices.length];
 
         var normal = normals[i];
-        vec2.sub(normal, worldPoint1, worldPoint0);
+        vec2.subtract(normal, worldPoint1, worldPoint0);
 
         // Get normal - just rotate 90 degrees since vertices are given in CCW
         vec2.rotate90cw(normal, normal);
@@ -391,7 +349,7 @@ Convex.prototype.raycast = function(result, ray, position, angle){
         var delta = vec2.getLineSegmentsIntersectionFraction(rayStart, rayEnd, q1, q2);
 
         if(delta >= 0){
-            vec2.sub(normal, q2, q1);
+            vec2.subtract(normal, q2, q1);
             vec2.rotate(normal, normal, -Math.PI / 2 + angle);
             vec2.normalize(normal, normal);
             ray.reportIntersection(result, delta, normal, i);
@@ -412,8 +370,8 @@ Convex.prototype.pointTest = function(localPoint){
         var v0 = verts[i % numVerts],
             v1 = verts[(i + 1) % numVerts];
 
-        vec2.sub(r0, v0, localPoint);
-        vec2.sub(r1, v1, localPoint);
+        vec2.subtract(r0, v0, localPoint);
+        vec2.subtract(r1, v1, localPoint);
 
         var cross = vec2.crossLength(r0,r1);
 

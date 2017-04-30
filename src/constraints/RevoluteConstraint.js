@@ -3,7 +3,7 @@ var Constraint = require('./Constraint')
 ,   RotationalVelocityEquation = require('../equations/RotationalVelocityEquation')
 ,   RotationalLockEquation = require('../equations/RotationalLockEquation')
 ,   vec2 = require('../math/vec2')
-,   sub = vec2.sub
+,   sub = vec2.subtract
 ,   add = vec2.add
 ,   rotate = vec2.rotate
 ,   dot = vec2.dot
@@ -35,7 +35,11 @@ var worldPivotA = vec2.create(),
  * @example
  *     // This will create a revolute constraint between two bodies with pivot point in between them.
  *     var bodyA = new Body({ mass: 1, position: [-1, 0] });
+ *     world.addBody(bodyA);
+ *
  *     var bodyB = new Body({ mass: 1, position: [1, 0] });
+ *     world.addBody(bodyB);
+ *
  *     var constraint = new RevoluteConstraint(bodyA, bodyB, {
  *         worldPivot: [0, 0]
  *     });
@@ -263,7 +267,7 @@ Object.defineProperties(RevoluteConstraint.prototype, {
     },
 
     /**
-     * @property {boolean} motorSpeed
+     * @property {number} motorSpeed
      */
     motorSpeed: {
         get: function() {
@@ -275,7 +279,7 @@ Object.defineProperties(RevoluteConstraint.prototype, {
     },
 
     /**
-     * @property {boolean} motorMaxForce
+     * @property {number} motorMaxForce
      */
     motorMaxForce: {
         get: function() {
@@ -295,6 +299,7 @@ Object.defineProperties(RevoluteConstraint.prototype, {
  * @method enableMotor
  */
 RevoluteConstraint.prototype.enableMotor = function(){
+    console.warn("revolute.enableMotor() is deprecated, do revolute.motorEnabled = true; instead.");
     this.motorEnabled = true;
 };
 
@@ -304,6 +309,7 @@ RevoluteConstraint.prototype.enableMotor = function(){
  * @method disableMotor
  */
 RevoluteConstraint.prototype.disableMotor = function(){
+    console.warn("revolute.disableMotor() is deprecated, do revolute.motorEnabled = false; instead.");
     this.motorEnabled = false;
 };
 
@@ -314,6 +320,7 @@ RevoluteConstraint.prototype.disableMotor = function(){
  * @return {Boolean}
  */
 RevoluteConstraint.prototype.motorIsEnabled = function(){
+    console.warn("revolute.motorIsEnabled() is deprecated, use revolute.motorEnabled instead.");
     return this.motorEnabled;
 };
 
@@ -324,6 +331,7 @@ RevoluteConstraint.prototype.motorIsEnabled = function(){
  * @param {Number} speed
  */
 RevoluteConstraint.prototype.setMotorSpeed = function(speed){
+    console.warn("revolute.setMotorSpeed(speed) is deprecated, do revolute.motorSpeed = speed; instead.");
     this.motorSpeed = speed;
 };
 
@@ -334,5 +342,6 @@ RevoluteConstraint.prototype.setMotorSpeed = function(speed){
  * @return {Number}
  */
 RevoluteConstraint.prototype.getMotorSpeed = function(){
+    console.warn("revolute.getMotorSpeed() is deprecated, use revolute.motorSpeed instead.");
     return this.motorSpeed;
 };

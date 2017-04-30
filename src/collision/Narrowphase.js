@@ -1,5 +1,5 @@
 var vec2 = require('../math/vec2')
-,   sub = vec2.sub
+,   sub = vec2.subtract
 ,   add = vec2.add
 ,   dot = vec2.dot
 ,   rotate = vec2.rotate
@@ -151,18 +151,37 @@ Narrowphase.prototype.bodiesOverlap = function(bodyA, bodyB, checkCollisionMasks
             bodyA.toWorldFrame(shapePositionA, shapeA.position);
             bodyB.toWorldFrame(shapePositionB, shapeB.position);
 
-            if(this[shapeA.type | shapeB.type](
-                bodyA,
-                shapeA,
-                shapePositionA,
-                shapeA.angle + bodyA.angle,
-                bodyB,
-                shapeB,
-                shapePositionB,
-                shapeB.angle + bodyB.angle,
-                true
-            )){
-                return true;
+            if(shapeA.type <= shapeB.type)
+            {
+                if(this[shapeA.type | shapeB.type](
+                    bodyA,
+                    shapeA,
+                    shapePositionA,
+                    shapeA.angle + bodyA.angle,
+                    bodyB,
+                    shapeB,
+                    shapePositionB,
+                    shapeB.angle + bodyB.angle,
+                    true
+                )){
+                    return true;
+                }
+            }
+            else
+            {
+                if(this[shapeA.type | shapeB.type](
+                    bodyB,
+                    shapeB,
+                    shapePositionB,
+                    shapeB.angle + bodyB.angle,
+                    bodyA,
+                    shapeA,
+                    shapePositionA,
+                    shapeA.angle + bodyA.angle,
+                    true
+                )){
+                    return true;
+                }
             }
         }
     }
@@ -323,10 +342,12 @@ Narrowphase.prototype.createFrictionFromAverage = function(numContacts){
  * @param  {Array}      lineOffset
  * @param  {Number}     lineAngle
  * @param {boolean}     justTest
+ * @return {number}
  * @todo Implement me!
  */
-Narrowphase.prototype[Shape.LINE | Shape.CONVEX] =
+Narrowphase.prototype[Shape.CONVEX | Shape.LINE] =
 Narrowphase.prototype.convexLine = function(
+    /*
     convexBody,
     convexShape,
     convexOffset,
@@ -336,13 +357,10 @@ Narrowphase.prototype.convexLine = function(
     lineOffset,
     lineAngle,
     justTest
+    */
 ){
     // TODO
-    if(justTest){
-        return false;
-    } else {
-        return 0;
-    }
+    return 0;
 };
 
 /**
@@ -357,10 +375,12 @@ Narrowphase.prototype.convexLine = function(
  * @param  {Array}      boxOffset
  * @param  {Number}     boxAngle
  * @param  {Boolean}    justTest
+ * @return {number}
  * @todo Implement me!
  */
 Narrowphase.prototype[Shape.LINE | Shape.BOX] =
 Narrowphase.prototype.lineBox = function(
+    /*
     lineBody,
     lineShape,
     lineOffset,
@@ -370,13 +390,10 @@ Narrowphase.prototype.lineBox = function(
     boxOffset,
     boxAngle,
     justTest
+    */
 ){
     // TODO
-    if(justTest){
-        return false;
-    } else {
-        return 0;
-    }
+    return 0;
 };
 
 function setConvexToCapsuleShapeMiddle(convexShape, capsuleShape){
@@ -403,9 +420,10 @@ var convexCapsule_tempRect = new Box({ width: 1, height: 1 }),
  * @param  {Capsule}    capsuleShape
  * @param  {Array}      capsulePosition
  * @param  {Number}     capsuleAngle
+ * @return {number}
  */
-Narrowphase.prototype[Shape.CAPSULE | Shape.CONVEX] =
-Narrowphase.prototype[Shape.CAPSULE | Shape.BOX] =
+Narrowphase.prototype[Shape.CONVEX | Shape.CAPSULE] =
+Narrowphase.prototype[Shape.BOX | Shape.CAPSULE] =
 Narrowphase.prototype.convexCapsule = function(
     convexBody,
     convexShape,
@@ -430,8 +448,8 @@ Narrowphase.prototype.convexCapsule = function(
     vec2.toGlobalFrame(circlePos, circlePos, capsulePosition, capsuleAngle);
     var result2 = this.circleConvex(capsuleBody,capsuleShape,circlePos,capsuleAngle, convexBody,convexShape,convexPosition,convexAngle, justTest, capsuleShape.radius);
 
-    if(justTest && (result1 || result2)){
-        return true;
+    if(justTest && (result1 + result2) !== 0){
+        return 1;
     }
 
     // Check center rect
@@ -453,10 +471,12 @@ Narrowphase.prototype.convexCapsule = function(
  * @param  {Capsule}    capsuleShape
  * @param  {Array}      capsulePosition
  * @param  {Number}     capsuleAngle
+ * @return {number}
  * @todo Implement me!
  */
-Narrowphase.prototype[Shape.CAPSULE | Shape.LINE] =
+Narrowphase.prototype[Shape.LINE | Shape.CAPSULE] =
 Narrowphase.prototype.lineCapsule = function(
+    /*
     lineBody,
     lineShape,
     linePosition,
@@ -466,13 +486,10 @@ Narrowphase.prototype.lineCapsule = function(
     capsulePosition,
     capsuleAngle,
     justTest
+    */
 ){
     // TODO
-    if(justTest){
-        return false;
-    } else {
-        return 0;
-    }
+    return 0;
 };
 
 var capsuleCapsule_tempVec1 = createVec2();
@@ -491,7 +508,7 @@ var capsuleCapsule_tempRect1 = new Box({ width: 1, height: 1 });
  * @param  {Array}      xj
  * @param  {Number}     aj
  */
-Narrowphase.prototype[Shape.CAPSULE | Shape.CAPSULE] =
+Narrowphase.prototype[Shape.CAPSULE] =
 Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTest){
 
     var enableFrictionBefore;
@@ -526,8 +543,8 @@ Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTe
                 this.enableFriction = enableFrictionBefore;
             }
 
-            if(justTest && result){
-                return true;
+            if(justTest && result !== 0){
+                return 1;
             }
 
             numContacts += result;
@@ -549,8 +566,8 @@ Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTe
         this.enableFriction = enableFrictionBefore;
     }
 
-    if(justTest && result1){
-        return true;
+    if(justTest && result1 !== 0){
+        return 1;
     }
     numContacts += result1;
 
@@ -567,8 +584,8 @@ Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTe
         this.enableFriction = enableFrictionBefore;
     }
 
-    if(justTest && result2){
-        return true;
+    if(justTest && result2 !== 0){
+        return 1;
     }
     numContacts += result2;
 
@@ -592,11 +609,12 @@ Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTe
  * @param  {Line}       shapeB
  * @param  {Array}      positionB
  * @param  {Number}     angleB
+ * @return {number}
  * @todo Implement me!
  */
-Narrowphase.prototype[Shape.LINE | Shape.LINE] =
+Narrowphase.prototype[Shape.LINE] =
 Narrowphase.prototype.lineLine = function(
-    bodyA,
+   /* bodyA,
     shapeA,
     positionA,
     angleA,
@@ -604,14 +622,10 @@ Narrowphase.prototype.lineLine = function(
     shapeB,
     positionB,
     angleB,
-    justTest
+    justTest*/
 ){
     // TODO
-    if(justTest){
-        return false;
-    } else {
-        return 0;
-    }
+    return 0;
 };
 
 /**
@@ -674,7 +688,7 @@ Narrowphase.prototype.planeLine = function(planeBody, planeShape, planeOffset, p
         if(d < 0){
 
             if(justTest){
-                return true;
+                return 1;
             }
 
             var c = this.createContactEquation(planeBody,lineBody,planeShape,lineShape);
@@ -706,7 +720,7 @@ Narrowphase.prototype.planeLine = function(planeBody, planeShape, planeOffset, p
     }
 
     if(justTest){
-        return false;
+        return 0;
     }
 
     if(!this.enableFrictionReduction){
@@ -747,6 +761,7 @@ Narrowphase.prototype.particleCapsule = function(
  * @param {Boolean} justTest If set to true, this function will return the result (intersection or not) without adding equations.
  * @param {Number} lineRadius Radius to add to the line. Can be used to test Capsules.
  * @param {Number} circleRadius If set, this value overrides the circle shape radius.
+ * @return {number}
  */
 Narrowphase.prototype[Shape.CIRCLE | Shape.LINE] =
 Narrowphase.prototype.circleLine = function(
@@ -832,7 +847,7 @@ Narrowphase.prototype.circleLine = function(
             // We got contact!
 
             if(justTest){
-                return true;
+                return 1;
             }
 
             var c = this.createContactEquation(circleBody,lineBody,circleShape,lineShape);
@@ -870,7 +885,7 @@ Narrowphase.prototype.circleLine = function(
         if(squaredLength(dist) < Math.pow(radiusSum, 2)){
 
             if(justTest){
-                return true;
+                return 1;
             }
 
             var c = this.createContactEquation(circleBody,lineBody,circleShape,lineShape);
@@ -932,6 +947,7 @@ Narrowphase.prototype.circleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTes
  * @param  {Number} convexAngle
  * @param  {Boolean} justTest
  * @param  {Number} circleRadius
+ * @return {number}
  * @todo Should probably do a separating axis test like https://github.com/erincatto/Box2D/blob/master/Box2D/Box2D/Collision/b2CollideCircle.cpp#L62
  */
 Narrowphase.prototype[Shape.CIRCLE | Shape.CONVEX] =
@@ -991,7 +1007,7 @@ Narrowphase.prototype.circleConvex = function(
 
         if (s > radius){
             // Early out.
-            return justTest ? false : 0;
+            return 0;
         }
 
         if (s > separation){
@@ -1024,7 +1040,7 @@ Narrowphase.prototype.circleConvex = function(
     if(found !== -1){
 
         if(justTest){
-            return true;
+            return 1;
         }
 
         var v0 = vertices[found % numVertices],
@@ -1078,7 +1094,7 @@ Narrowphase.prototype.circleConvex = function(
             if(squaredLength(dist) < circleRadius * circleRadius){
 
                 if(justTest){
-                    return true;
+                    return 1;
                 }
 
                 vec2.toGlobalFrame(worldVertex, localVertex, convexOffset, convexAngle);
@@ -1194,6 +1210,7 @@ function pointInConvexLocal(localPoint,convexShape){
  * @param  {Array} convexOffset
  * @param  {Number} convexAngle
  * @param {Boolean} justTest
+ * @return {number}
  * @todo use pointInConvex and code more similar to circleConvex
  * @todo don't transform each vertex, but transform the particle position to convex-local instead
  */
@@ -1226,11 +1243,11 @@ Narrowphase.prototype.particleConvex = function(
 
     // Check if the particle is in the polygon at all
     if(!pointInConvex(particleOffset,convexShape,convexOffset,convexAngle)){
-        return justTest ? false : 0;
+        return 0;
     }
 
     if(justTest){
-        return true;
+        return 1;
     }
 
     // Check edges first
@@ -1314,6 +1331,7 @@ Narrowphase.prototype.particleConvex = function(
  * @param {Boolean} justTest
  * @param {Number} [radiusA] Optional radius to use for shapeA
  * @param {Number} [radiusB] Optional radius to use for shapeB
+ * @return {number}
  */
 Narrowphase.prototype[Shape.CIRCLE] =
 Narrowphase.prototype.circleCircle = function(
@@ -1341,7 +1359,7 @@ Narrowphase.prototype.circleCircle = function(
     }
 
     if(justTest){
-        return true;
+        return 1;
     }
 
     var c = this.createContactEquation(bodyA,bodyB,shapeA,shapeB);
@@ -1383,6 +1401,7 @@ function addSub(out, a, b, c){
  * @param  {Array} convexOffset
  * @param  {Number} convexAngle
  * @param {Boolean} justTest
+ * @return {number}
  * @todo only use the deepest contact point + the contact point furthest away from it
  */
 Narrowphase.prototype[Shape.PLANE | Shape.CONVEX] =
@@ -1421,7 +1440,7 @@ Narrowphase.prototype.planeConvex = function(
         if(dot(localDist,localPlaneNormal) <= 0){
 
             if(justTest){
-                return true;
+                return 1;
             }
 
             vec2.toGlobalFrame(worldVertex, v, convexOffset, convexAngle);
@@ -1478,6 +1497,7 @@ Narrowphase.prototype.planeConvex = function(
  * @param  {Array}      planeOffset
  * @param  {Number}     planeAngle
  * @param {Boolean}     justTest
+ * @return {number}
  */
 Narrowphase.prototype[Shape.PARTICLE | Shape.PLANE] =
 Narrowphase.prototype.particlePlane = function(
@@ -1505,7 +1525,7 @@ Narrowphase.prototype.particlePlane = function(
         return 0;
     }
     if(justTest){
-        return true;
+        return 1;
     }
 
     var c = this.createContactEquation(planeBody,particleBody,planeShape,particleShape);
@@ -1541,6 +1561,7 @@ Narrowphase.prototype.particlePlane = function(
  * @param  {Array} particleOffset
  * @param  {Number} particleAngle
  * @param  {Boolean} justTest
+ * @return {number}
  */
 Narrowphase.prototype[Shape.CIRCLE | Shape.PARTICLE] =
 Narrowphase.prototype.circleParticle = function(
@@ -1559,10 +1580,10 @@ Narrowphase.prototype.circleParticle = function(
 
     sub(dist, particleOffset, circleOffset);
     if(squaredLength(dist) > circleRadius*circleRadius){
-        return justTest ? false : 0;
+        return 0;
     }
     if(justTest){
-        return true;
+        return 1;
     }
 
     var c = this.createContactEquation(circleBody,particleBody,circleShape,particleShape);
@@ -1605,6 +1626,7 @@ var planeCapsule_tmpCircle = new Circle({ radius: 1 }),
  * @param  {Array} capsuleOffset
  * @param  {Number} capsuleAngle
  * @param {Boolean} justTest
+ * @return {number}
  */
 Narrowphase.prototype[Shape.PLANE | Shape.CAPSULE] =
 Narrowphase.prototype.planeCapsule = function(
@@ -1649,7 +1671,7 @@ Narrowphase.prototype.planeCapsule = function(
     }
 
     if(justTest){
-        return numContacts1 || numContacts2;
+        return numContacts1 + numContacts2;
     } else {
         var numTotal = numContacts1 + numContacts2;
         if(this.enableFrictionReduction){
@@ -1672,6 +1694,7 @@ Narrowphase.prototype.planeCapsule = function(
  * @param  {Array}   planeOffset
  * @param  {Number}  planeAngle
  * @param  {Boolean} justTest
+ * @return {number}
  */
 Narrowphase.prototype[Shape.CIRCLE | Shape.PLANE] =
 Narrowphase.prototype.circlePlane = function(
@@ -1705,7 +1728,7 @@ Narrowphase.prototype.circlePlane = function(
     }
 
     if(justTest){
-        return true;
+        return 1;
     }
 
     // Create contact
@@ -1736,6 +1759,123 @@ Narrowphase.prototype.circlePlane = function(
     return 1;
 };
 
+// Find the max separation between poly1 and poly2 using edge normals from poly1.
+var findMaxSeparation_n = vec2.create();
+var findMaxSeparation_v1 = vec2.create();
+var findMaxSeparation_tmp = vec2.create();
+var findMaxSeparation_tmp2 = vec2.create();
+function findMaxSeparation(maxSeparationOut, poly1, position1, angle1, poly2, position2, angle2)
+{
+    var count1 = poly1.vertices.length;
+    var count2 = poly2.vertices.length;
+    var n1s = poly1.normals;
+    var v1s = poly1.vertices;
+    var v2s = poly2.vertices;
+
+    var n = findMaxSeparation_n;
+    var v1 = findMaxSeparation_v1;
+    var tmp = findMaxSeparation_tmp;
+    var tmp2 = findMaxSeparation_tmp2;
+
+    var angle = angle1 - angle2;
+
+    var bestIndex = 0;
+    var maxSeparation = -Number.MAX_VALUE;
+    for (var i = 0; i < count1; ++i)
+    {
+        // Get poly1 normal in frame2.
+        vec2.rotate(n, n1s[i], angle);
+
+        // Get poly1 vertex in frame2
+        vec2.toGlobalFrame(tmp2, v1s[i], position1, angle1);
+        vec2.toLocalFrame(v1, tmp2, position2, angle2);
+
+        // Find deepest point for normal i.
+        var si = Number.MAX_VALUE;
+        for (var j = 0; j < count2; ++j)
+        {
+            vec2.subtract(tmp, v2s[j], v1);
+            var sij = vec2.dot(n, tmp);
+            if (sij < si)
+            {
+                si = sij;
+            }
+        }
+
+        if (si > maxSeparation)
+        {
+            maxSeparation = si;
+            bestIndex = i;
+        }
+    }
+
+    // Use a vec2 for storing the float value and always return int, for perf
+    maxSeparationOut[0] = maxSeparation;
+
+    return bestIndex;
+}
+
+var findIncidentEdge_normal1 = vec2.create();
+function findIncidentEdge(clipVerticesOut, poly1, position1, angle1, edge1, poly2, position2, angle2)
+{
+    var normals1 = poly1.normals;
+    var count2 = poly2.vertices.length;
+    var vertices2 = poly2.vertices;
+    var normals2 = poly2.normals;
+
+    // Get the normal of the reference edge in poly2's frame.
+    var normal1 = findIncidentEdge_normal1;
+    vec2.rotate(normal1, normals1[edge1], angle1 - angle2);
+
+    // Find the incident edge on poly2.
+    var index = 0;
+    var minDot = Number.MAX_VALUE;
+    for (var i = 0; i < count2; ++i)
+    {
+        var dot = vec2.dot(normal1, normals2[i]);
+        if (dot < minDot)
+        {
+            minDot = dot;
+            index = i;
+        }
+    }
+
+    // Build the clip vertices for the incident edge.
+    var i1 = index;
+    var i2 = i1 + 1 < count2 ? i1 + 1 : 0;
+
+    vec2.toGlobalFrame(clipVerticesOut[0], vertices2[i1], position2, angle2);
+    vec2.toGlobalFrame(clipVerticesOut[1], vertices2[i2], position2, angle2);
+}
+
+// Find edge normal of max separation on A - return if separating axis is found
+// Find edge normal of max separation on B - return if separation axis is found
+// Choose reference edge as min(minA, minB)
+// Find incident edge
+// Clip
+// The normal points from 1 to 2
+var collidePolygons_tempVec = vec2.create();
+var collidePolygons_tmpVec = vec2.create();
+var collidePolygons_localTangent = vec2.create();
+var collidePolygons_localNormal = vec2.create();
+var collidePolygons_planePoint = vec2.create();
+var collidePolygons_tangent = vec2.create();
+var collidePolygons_normal = vec2.create();
+var collidePolygons_negativeTangent = vec2.create();
+var collidePolygons_v11 = vec2.create();
+var collidePolygons_v12 = vec2.create();
+var collidePolygons_dist = vec2.create();
+var collidePolygons_clipPoints1 = [vec2.create(), vec2.create()];
+var collidePolygons_clipPoints2 = [vec2.create(), vec2.create()];
+var collidePolygons_incidentEdge = [vec2.create(), vec2.create()];
+var maxManifoldPoints = 2;
+/*function collidePolygons(
+    manifold,
+    polyA, positionA, angleA,
+    polyB, positionB, angleB,
+    incidentEdge
+) {*/
+
 /**
  * Convex/convex Narrowphase.See <a href="http://www.altdevblogaday.com/2011/05/13/contact-generation-between-3d-convex-meshes/">this article</a> for more info.
  * @method convexConvex
@@ -1747,416 +1887,210 @@ Narrowphase.prototype.circlePlane = function(
  * @param  {Convex} sj
  * @param  {Array} xj
  * @param  {Number} aj
+ * @param  {Boolean} justTest
+ * @return {number}
  */
 Narrowphase.prototype[Shape.CONVEX] =
 Narrowphase.prototype[Shape.CONVEX | Shape.BOX] =
 Narrowphase.prototype[Shape.BOX] =
-Narrowphase.prototype.convexConvex = function(  bi,si,xi,ai, bj,sj,xj,aj, justTest, precision ){
-    var sepAxis = tmp1,
-        worldPoint = tmp2,
-        worldPoint0 = tmp3,
-        worldPoint1 = tmp4,
-        worldEdge = tmp5,
-        penetrationVec = tmp7,
-        dist = tmp8,
-        worldNormal = tmp9,
-        numContacts = 0,
-        precision = precision || 0;
+Narrowphase.prototype.convexConvex = function(
+    bodyA,
+    polyA,
+    positionA,
+    angleA,
+    bodyB,
+    polyB,
+    positionB,
+    angleB,
+    justTest
+){
+    var totalRadius = 0;
+    var dist = collidePolygons_dist;
 
-    var found = Narrowphase.findSeparatingAxis(si,xi,ai,sj,xj,aj,sepAxis);
-    if(!found){
+    var tempVec = collidePolygons_tempVec;
+    var tmpVec = collidePolygons_tmpVec;
+
+    var edgeA = findMaxSeparation(tempVec, polyA, positionA, angleA, polyB, positionB, angleB);
+    var separationA = tempVec[0];
+    if (separationA > totalRadius){
         return 0;
     }
 
-    // Make sure the separating axis is directed from shape i to shape j
-    sub(dist,xj,xi);
-    if(dot(sepAxis,dist) > 0){
-        scale(sepAxis,sepAxis,-1);
-    }
-
-    // Find edges with normals closest to the separating axis
-    var closestEdge1 = Narrowphase.getClosestEdge(si,ai,sepAxis,true), // Flipped axis
-        closestEdge2 = Narrowphase.getClosestEdge(sj,aj,sepAxis,false);
-
-    if(closestEdge1 === -1 || closestEdge2 === -1){
+    var edgeB = findMaxSeparation(tmpVec, polyB, positionB, angleB, polyA, positionA, angleA);
+    var separationB = tmpVec[0];
+    if (separationB > totalRadius){
         return 0;
     }
 
-    // Loop over the shapes
-    for(var k=0; k<2; k++){
+    var poly1;	// reference polygon
+    var poly2;	// incident polygon
 
-        var closestEdgeA = closestEdge1,
-            closestEdgeB = closestEdge2,
-            shapeA =  si, shapeB =  sj,
-            offsetA = xi, offsetB = xj,
-            angleA = ai, angleB = aj,
-            bodyA = bi, bodyB = bj;
+    var position1;
+    var position2;
+    var angle1;
+    var angle2;
+    var body1;
+    var body2;
 
-        if(k === 0){
-            // Swap!
-            var tmp;
-            tmp = closestEdgeA;
-            closestEdgeA = closestEdgeB;
-            closestEdgeB = tmp;
+    var edge1;					// reference edge
+    var type;
 
-            tmp = shapeA;
-            shapeA = shapeB;
-            shapeB = tmp;
+    if (separationB > separationA)
+    {
+        poly1 = polyB;
+        poly2 = polyA;
+        body1 = bodyB;
+        body2 = bodyA;
+        position1 = positionB;
+        angle1 = angleB;
+        position2 = positionA;
+        angle2 = angleA;
+        edge1 = edgeB;
+        type = 1; // faceB
+    }
+    else
+    {
+        poly1 = polyA;
+        poly2 = polyB;
+        body1 = bodyA;
+        body2 = bodyB;
+        position1 = positionA;
+        angle1 = angleA;
+        position2 = positionB;
+        angle2 = angleB;
+        edge1 = edgeA;
+        type = 0; // faceA
+    }
 
-            tmp = offsetA;
-            offsetA = offsetB;
-            offsetB = tmp;
+    var incidentEdge = collidePolygons_incidentEdge;
+    findIncidentEdge(incidentEdge, poly1, position1, angle1, edge1, poly2, position2, angle2);
 
-            tmp = angleA;
-            angleA = angleB;
-            angleB = tmp;
+    var count1 = poly1.vertices.length;
+    var vertices1 = poly1.vertices;
 
-            tmp = bodyA;
-            bodyA = bodyB;
-            bodyB = tmp;
-        }
+    var iv1 = edge1;
+    var iv2 = edge1 + 1 < count1 ? edge1 + 1 : 0;
 
-        // Loop over 2 points in convex B
-        for(var j=closestEdgeB; j<closestEdgeB+2; j++){
+    var v11 = collidePolygons_v11;
+    var v12 = collidePolygons_v12;
+    vec2.copy(v11, vertices1[iv1]);
+    vec2.copy(v12, vertices1[iv2]);
 
-            // Get world point
-            var v = shapeB.vertices[(j+shapeB.vertices.length)%shapeB.vertices.length];
-            vec2.toGlobalFrame(worldPoint, v, offsetB, angleB);
+    var localTangent = collidePolygons_localTangent;
+    vec2.subtract(localTangent, v12, v11);
+    vec2.normalize(localTangent, localTangent);
 
-            var insideNumEdges = 0;
+    var localNormal = collidePolygons_localNormal;
+    vec2.crossVZ(localNormal, localTangent, 1.0);
+    var planePoint = collidePolygons_planePoint;
+    vec2.add(planePoint, v11, v12);
+    vec2.scale(planePoint, planePoint, 0.5);
 
-            // Loop over the 3 closest edges in convex A
-            for(var i=closestEdgeA-1; i<closestEdgeA+2; i++){
+    var tangent = collidePolygons_tangent; // tangent in world space
+    vec2.rotate(tangent, localTangent, angle1);
+    var normal = collidePolygons_normal; // normal in world space
+    vec2.crossVZ(normal, tangent, 1.0);
 
-                var normalizedI = (i + shapeA.vertices.length) % shapeA.vertices.length,
-                    v0 = shapeA.vertices[normalizedI],
-                    v1 = shapeA.vertices[(normalizedI+1) % shapeA.vertices.length];
+    vec2.toGlobalFrame(v11, v11, position1, angle1);
+    vec2.toGlobalFrame(v12, v12, position1, angle1);
 
-                // Construct the edge
-                vec2.toGlobalFrame(worldPoint0, v0, offsetA, angleA);
-                //vec2.toGlobalFrame(worldPoint1, v1, offsetA, angleA);
+    // Face offset.
+    var frontOffset = vec2.dot(normal, v11);
 
-                //sub(worldEdge, worldPoint1, worldPoint0);
+    // Side offsets, extended by polytope skin thickness.
+    var sideOffset1 = -vec2.dot(tangent, v11) + totalRadius;
+    var sideOffset2 = vec2.dot(tangent, v12) + totalRadius;
 
-                // vec2.rotate90cw(worldNormal, worldEdge); // Normal points out of convex 1
-                // normalize(worldNormal,worldNormal);
-                rotate(worldNormal, shapeA.normals[normalizedI], angleA);
+    // Clip incident edge against extruded edge1 side edges.
+    var clipPoints1 = collidePolygons_clipPoints1;
+    var clipPoints2 = collidePolygons_clipPoints2;
+    var np = 0;
 
-                sub(dist, worldPoint, worldPoint0);
+    // Clip to box side 1
+    var negativeTangent = collidePolygons_negativeTangent;
+    vec2.scale(negativeTangent, tangent, -1);
+    np = clipSegmentToLine(clipPoints1, incidentEdge, negativeTangent, sideOffset1, iv1);
 
-                var d = dot(worldNormal,dist);
+    if (np < 2){
+        return 0;
+    }
 
-                if((i === closestEdgeA && d <= precision) || (i !== closestEdgeA && d <= 0)){
-                    insideNumEdges++;
-                }
+    // Clip to negative box side 1
+    np = clipSegmentToLine(clipPoints2, clipPoints1,  tangent, sideOffset2, iv2);
+
+    if (np < 2){
+        return 0;
+    }
+
+    var pointCount = 0;
+    for (var i = 0; i < maxManifoldPoints; ++i)
+    {
+        var separation = vec2.dot(normal, clipPoints2[i]) - frontOffset;
+
+        if (separation <= totalRadius)
+        {
+            if(justTest){
+                return 1;
             }
 
-            if(insideNumEdges >= 3){
+            ++pointCount;
 
-                if(justTest){
-                    return true;
-                }
+            var c = this.createContactEquation(body1,body2,poly1,poly2);
 
-                // worldPoint was on the "inside" side of each of the 3 checked edges.
-                // Project it to the center edge and use the projection direction as normal
+            vec2.copy(c.normalA, normal);
+            vec2.copy(c.contactPointB, clipPoints2[i]);
+            sub(c.contactPointB, c.contactPointB, body2.position);
 
-                // Create contact
-                var c = this.createContactEquation(bodyA,bodyB,shapeA,shapeB);
-                numContacts++;
+            vec2.scale(dist, normal, -separation);
+            vec2.add(c.contactPointA, clipPoints2[i], dist);
+            sub(c.contactPointA, c.contactPointA, body1.position);
 
-                // Get center edge from body A
-                var v0 = shapeA.vertices[(closestEdgeA)   % shapeA.vertices.length],
-                    v1 = shapeA.vertices[(closestEdgeA+1) % shapeA.vertices.length];
+            this.contactEquations.push(c);
 
-                // Construct the edge
-                rotate(worldPoint0, v0, angleA);
-                rotate(worldPoint1, v1, angleA);
-                add(worldPoint0, worldPoint0, offsetA);
-                add(worldPoint1, worldPoint1, offsetA);
-
-                sub(worldEdge, worldPoint1, worldPoint0);
-
-                vec2.rotate90cw(c.normalA, worldEdge); // Normal points out of convex A
-                normalize(c.normalA,c.normalA);
-
-                sub(dist, worldPoint, worldPoint0); // From edge point to the penetrating point
-                var d = dot(c.normalA,dist);             // Penetration
-                scale(penetrationVec, c.normalA, d);     // Vector penetration
-
-                sub(c.contactPointA, worldPoint, offsetA);
-                sub(c.contactPointA, c.contactPointA, penetrationVec);
-                add(c.contactPointA, c.contactPointA, offsetA);
-                sub(c.contactPointA, c.contactPointA, bodyA.position);
-
-                sub(c.contactPointB, worldPoint, offsetB);
-                add(c.contactPointB, c.contactPointB, offsetB);
-                sub(c.contactPointB, c.contactPointB, bodyB.position);
-
-                this.contactEquations.push(c);
-
-                // Todo reduce to 1 friction equation if we have 2 contact points
-                if(!this.enableFrictionReduction){
-                    if(this.enableFriction){
-                        this.frictionEquations.push(this.createFrictionFromContact(c));
-                    }
-                }
+            if(this.enableFriction && !this.enableFrictionReduction){
+                this.frictionEquations.push(this.createFrictionFromContact(c));
             }
         }
     }
 
-    if(this.enableFrictionReduction){
-        if(this.enableFriction && numContacts){
-            this.frictionEquations.push(this.createFrictionFromAverage(numContacts));
-        }
+    if(pointCount && this.enableFrictionReduction && this.enableFriction){
+        this.frictionEquations.push(this.createFrictionFromAverage(pointCount));
     }
 
-    return numContacts;
+    return pointCount;
 };
 
-// .projectConvex is called by other functions, need local tmp vectors
-var pcoa_tmp1 = createVec2();
+function clipSegmentToLine(vOut, vIn, normal, offset)
+{
+    // Start with no output points
+    var numOut = 0;
 
-/**
- * Project a Convex onto a world-oriented axis
- * @method projectConvexOntoAxis
- * @static
- * @param  {Convex} convexShape
- * @param  {Array} convexOffset
- * @param  {Number} convexAngle
- * @param  {Array} worldAxis
- * @param  {Array} result
- */
-Narrowphase.projectConvexOntoAxis = function(convexShape, convexOffset, convexAngle, worldAxis, result){
-    var max,
-        min,
-        v,
-        value,
-        vertices = convexShape.vertices,
-        localAxis = pcoa_tmp1;
+    // Calculate the distance of end points to the line
+    var distance0 = vec2.dot(normal, vIn[0]) - offset;
+    var distance1 = vec2.dot(normal, vIn[1]) - offset;
 
-    // Convert the axis to local coords of the body
-    rotate(localAxis, worldAxis, -convexAngle);
-
-    value = min = max = dot(vertices[0], localAxis);
-
-    // Get projected position of all vertices
-    for(var i=1, numVerts=vertices.length; i<numVerts; i++){
-        v = vertices[i];
-        value = dot(v,localAxis);
-        if(value > max){
-            max = value;
-        }
-        if(value < min){
-            min = value;
-        }
+    // If the points are behind the plane
+    if (distance0 <= 0.0){
+        vec2.copy(vOut[numOut++], vIn[0]);
+    }
+    if (distance1 <= 0.0){
+        vec2.copy(vOut[numOut++], vIn[1]);
     }
 
-    if(min > max){
-        var t = min;
-        min = max;
-        max = t;
+    // If the points are on different sides of the plane
+    if (distance0 * distance1 < 0.0)
+    {
+        // Find intersection point of edge and plane
+        var interp = distance0 / (distance0 - distance1);
+        var v = vOut[numOut];
+        vec2.subtract(v, vIn[1], vIn[0]);
+        vec2.scale(v, v, interp);
+        vec2.add(v, v, vIn[0]);
+        ++numOut;
     }
 
-    // Project the position of the body onto the axis - need to add this to the result
-    var offset = dot(convexOffset, worldAxis);
-
-    vec2.set( result, min + offset, max + offset);
-};
-
-// .findSeparatingAxis is called by other functions, need local tmp vectors
-var fsa_tmp4 = createVec2()
-,   fsa_tmp5 = createVec2()
-,   fsa_tmp6 = createVec2();
-
-/**
- * Find a separating axis between the shapes, that maximizes the separating distance between them.
- * @method findSeparatingAxis
- * @static
- * @param  {Convex}     c1
- * @param  {Array}      offset1
- * @param  {Number}     angle1
- * @param  {Convex}     c2
- * @param  {Array}      offset2
- * @param  {Number}     angle2
- * @param  {Array}      sepAxis     The resulting axis
- * @return {Boolean}                Whether the axis could be found.
- */
-Narrowphase.findSeparatingAxis = function(c1,offset1,angle1,c2,offset2,angle2,sepAxis){
-    var maxDist = null,
-        overlap = false,
-        found = false,
-        normal = fsa_tmp4,
-        span1 = fsa_tmp5,
-        span2 = fsa_tmp6;
-
-    if(c1 instanceof Box && c2 instanceof Box){
-
-        for(var j=0; j!==2; j++){
-            var c = c1,
-                angle = angle1;
-            if(j===1){
-                c = c2;
-                angle = angle2;
-            }
-
-            for(var i=0; i!==2; i++){
-
-                // Get the world edge
-                if(i === 0){
-                    vec2.set(normal, 0, 1);
-                } else if(i === 1) {
-                    vec2.set(normal, 1, 0);
-                }
-                if(angle !== 0){
-                    rotate(normal, normal, angle);
-                }
-
-                // Project hulls onto that normal
-                Narrowphase.projectConvexOntoAxis(c1,offset1,angle1,normal,span1);
-                Narrowphase.projectConvexOntoAxis(c2,offset2,angle2,normal,span2);
-
-                // Order by span position
-                var a=span1,
-                    b=span2,
-                    swapped = false;
-                if(span1[0] > span2[0]){
-                    b=span1;
-                    a=span2;
-                    swapped = true;
-                }
-
-                // Get separating distance
-                var dist = b[0] - a[1];
-                overlap = (dist <= 0);
-
-                if(maxDist===null || dist > maxDist){
-                    copy(sepAxis, normal);
-                    maxDist = dist;
-                    found = overlap;
-                }
-            }
-        }
-
-    } else {
-
-        for(var j=0; j!==2; j++){
-            var c = c1,
-                angle = angle1;
-            if(j===1){
-                c = c2;
-                angle = angle2;
-            }
-
-            for(var i=0; i!==c.vertices.length; i++){
-                // Get world normal
-                rotate(normal, c.normals[i], angle);
-
-                // Project hulls onto that normal
-                Narrowphase.projectConvexOntoAxis(c1,offset1,angle1,normal,span1);
-                Narrowphase.projectConvexOntoAxis(c2,offset2,angle2,normal,span2);
-
-                // Order by span position
-                var a=span1,
-                    b=span2,
-                    swapped = false;
-                if(span1[0] > span2[0]){
-                    b=span1;
-                    a=span2;
-                    swapped = true;
-                }
-
-                // Get separating distance
-                var dist = b[0] - a[1];
-                overlap = (dist <= 0);
-
-                if(maxDist===null || dist > maxDist){
-                    copy(sepAxis, normal);
-                    maxDist = dist;
-                    found = overlap;
-                }
-            }
-        }
-    }
-
-
-    /*
-    // Needs to be tested some more
-    for(var j=0; j!==2; j++){
-        var c = c1,
-            angle = angle1;
-        if(j===1){
-            c = c2;
-            angle = angle2;
-        }
-
-        for(var i=0; i!==c.axes.length; i++){
-
-            var normal = c.axes[i];
-
-            // Project hulls onto that normal
-            Narrowphase.projectConvexOntoAxis(c1, offset1, angle1, normal, span1);
-            Narrowphase.projectConvexOntoAxis(c2, offset2, angle2, normal, span2);
-
-            // Order by span position
-            var a=span1,
-                b=span2,
-                swapped = false;
-            if(span1[0] > span2[0]){
-                b=span1;
-                a=span2;
-                swapped = true;
-            }
-
-            // Get separating distance
-            var dist = b[0] - a[1];
-            overlap = (dist <= Narrowphase.convexPrecision);
-
-            if(maxDist===null || dist > maxDist){
-                copy(sepAxis, normal);
-                maxDist = dist;
-                found = overlap;
-            }
-        }
-    }
-    */
-
-    return found;
-};
-
-// .getClosestEdge is called by other functions, need local tmp vectors
-var gce_tmp1 = createVec2();
-
-/**
- * Get the edge that has a normal closest to an axis.
- * @method getClosestEdge
- * @static
- * @param  {Convex}     c
- * @param  {Number}     angle
- * @param  {Array}      axis
- * @param  {Boolean}    flip
- * @return {Number}             Index of the edge that is closest. This index and the next spans the resulting edge. Returns -1 if failed.
- */
-Narrowphase.getClosestEdge = function(c,angle,axis,flip){
-    var localAxis = gce_tmp1,
-        normal;
-
-    // Convert the axis to local coords of the body
-    rotate(localAxis, axis, -angle + (flip ? Math.PI : 0));
-
-    var closestEdge = 0,
-        N = c.vertices.length,
-        maxDot = dot(c.normals[0],localAxis);
-    for(var i=1; i!==N; i++){
-        normal = c.normals[i];
-        var d = dot(normal,localAxis);
-        if(d > maxDot){
-            closestEdge = i;
-            maxDot = d;
-        }
-    }
-
-    return closestEdge;
-};
+    return numOut;
+}
 
 var circleHeightfield_candidate = createVec2(),
     circleHeightfield_dist = createVec2(),
@@ -2217,7 +2151,7 @@ Narrowphase.prototype.circleHeightfield = function( circleBody,circleShape,circl
     }
 
     if(circlePos[1]-radius > max){
-        return justTest ? false : 0;
+        return 0;
     }
 
     /*
@@ -2260,7 +2194,7 @@ Narrowphase.prototype.circleHeightfield = function( circleBody,circleShape,circl
         if(candidate[0] >= v0[0] && candidate[0] < v1[0] && d <= 0){
 
             if(justTest){
-                return true;
+                return 1;
             }
 
             found = true;
@@ -2305,7 +2239,7 @@ Narrowphase.prototype.circleHeightfield = function( circleBody,circleShape,circl
             if(squaredLength(dist) < Math.pow(radius, 2)){
 
                 if(justTest){
-                    return true;
+                    return 1;
                 }
 
                 found = true;
@@ -2390,7 +2324,7 @@ Narrowphase.prototype.convexHeightfield = function( convexBody,convexShape,conve
     }
 
     if(convexBody.aabb.lowerBound[1] > max){
-        return justTest ? false : 0;
+        return 0;
     }
 
     var numContacts = 0;
@@ -2417,6 +2351,7 @@ Narrowphase.prototype.convexHeightfield = function( convexBody,convexShape,conve
         copy(tileConvex.vertices[3], tileConvex.vertices[0]);
         tileConvex.vertices[2][1] -= tileHeight;
         tileConvex.vertices[3][1] -= tileHeight;
+        tileConvex.updateNormals();
 
         // Do convex collision
         numContacts += this.convexConvex(   convexBody, convexShape, convexPos, convexAngle,

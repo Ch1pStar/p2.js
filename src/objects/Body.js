@@ -1,6 +1,6 @@
 var vec2 = require('../math/vec2')
 ,   add = vec2.add
-,   sub = vec2.sub
+,   sub = vec2.subtract
 ,   vec2create = vec2.create
 ,   decomp = require('poly-decomp')
 ,   Convex = require('../shapes/Convex')
@@ -44,18 +44,42 @@ module.exports = Body;
  *
  *     // Create a typical dynamic body
  *     var body = new Body({
- *         mass: 1,
- *         position: [0, 0],
+ *         mass: 1, // non-zero mass will set type to Body.DYNAMIC
+ *         position: [0, 5],
  *         angle: 0,
  *         velocity: [0, 0],
  *         angularVelocity: 0
  *     });
  *
  *     // Add a circular shape to the body
- *     body.addShape(new Circle({ radius: 1 }));
+ *     var circleShape = new Circle({ radius: 0.5 });
+ *     body.addShape(circleShape);
  *
  *     // Add the body to the world
  *     world.addBody(body);
+ *
+ * @example
+ *
+ *     // Create a static plane body
+ *     var planeBody = new Body({
+ *         mass: 0, // zero mass will set type to Body.STATIC
+ *         position: [0, 0]
+ *     });
+ *     var planeShape = new Plane();
+ *     planeBody.addShape(planeShape);
+ *     world.addBody(planeBody);
+ *
+ * @example
+ *
+ *     // Create a moving kinematic box body
+ *     var platformBody = new Body({
+ *         type: Body.KINEMATIC,
+ *         position: [0, 3],
+ *         velocity: [1, 0]
+ *     });
+ *     var boxShape = new Box({ width: 2, height: 0.5 });
+ *     platformBody.addShape(boxShape);
+ *     world.addBody(platformBody);
  */
 function Body(options){
     options = options || {};
@@ -69,6 +93,14 @@ function Body(options){
      * @type {Number}
      */
     this.id = options.id || ++Body._idCounter;
+
+    /**
+     * Index of the body in the World .bodies array. Is set to -1 if the body isn't added to a World.
+     * @readonly
+     * @property index
+     * @type {Number}
+     */
+    this.index = -1;
 
     /**
      * The world that this body is added to (read only). This property is set to NULL if the body is not added to any world.
@@ -441,6 +473,11 @@ function Body(options){
      * @default 10
      */
     this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 10;
+
+    /**
+     * @property {number} islandId
+     */
+    this.islandId = -1;
 
     this.concavePath = null;
 
@@ -882,38 +919,38 @@ Body.prototype.fromPolygon = function(path,options){
         this.removeShape(this.shapes[i]);
     }
 
-    var p = new decomp.Polygon();
-    p.vertices = path.slice(0);
-    for(var i=0; i<p.vertices.length; i++){
-        p.vertices[i] = vec2.clone(p.vertices[i]);
+    // Copy the path
+    var p = [];
+    for(var i=0; i<path.length; i++){
+        p[i] = vec2.clone(path[i]);
     }
 
     // Make it counter-clockwise
-    p.makeCCW();
+    decomp.makeCCW(p);
 
     if(options.removeCollinearPoints !== undefined){
-        p.removeCollinearPoints(options.removeCollinearPoints);
+        decomp.removeCollinearPoints(p, options.removeCollinearPoints);
     }
 
     // Check if any line segment intersects the path itself
-    if(options.skipSimpleCheck){
-        if(!p.isSimple()){
+    if(!options.skipSimpleCheck){
+        if(!decomp.isSimple(p)){
             return false;
         }
     }
 
     // Save this path for later
-    var concavePath = this.concavePath = p.vertices.slice(0);
-    for(var i=0; i<concavePath.length; i++){
-        concavePath[i] = vec2.clone(concavePath[i]);
+    var concavePath = this.concavePath = [];
+    for(var i=0; i<p.length; i++){
+        concavePath[i] = vec2.clone(p[i]);
     }
 
     // Slow or fast decomp?
     var convexes;
     if(options.optimalDecomp){
-        convexes = p.decomp();
+        convexes = decomp.decomp(p);
     } else {
-        convexes = p.quickDecomp();
+        convexes = decomp.quickDecomp(p);
     }
 
     var cm = vec2create();
@@ -921,7 +958,7 @@ Body.prototype.fromPolygon = function(path,options){
     // Add convexes
     for(var i=0; i!==convexes.length; i++){
         // Create convex
-        var c = new Convex({ vertices: convexes[i].vertices });
+        var c = new Convex({ vertices: convexes[i] });
 
         // Move all vertices so its center of mass is in the local center of the convex
         for(var j=0; j!==c.vertices.length; j++){
@@ -929,10 +966,9 @@ Body.prototype.fromPolygon = function(path,options){
             sub(v,v,c.centerOfMass);
         }
 
-        vec2.scale(cm,c.centerOfMass,1);
-        c.updateTriangles();
-        c.updateCenterOfMass();
-        c.updateBoundingRadius();
+        vec2.copy(cm,c.centerOfMass);
+
+        c = new Convex({ vertices: c.vertices });
 
         // Add the shape
         this.addShape(c,cm);
@@ -999,8 +1035,8 @@ Body.prototype.adjustCenterOfMass = function(){
  * @method setZeroForce
  */
 Body.prototype.setZeroForce = function(){
-    vec2.set(this.force,0,0);
-    this.angularForce = 0;
+    var f = this.force;
+    f[0] = f[1] = this.angularForce = 0;
 };
 
 Body.prototype.resetConstraintVelocity = function(){

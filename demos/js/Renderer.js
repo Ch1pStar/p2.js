@@ -540,6 +540,11 @@ Renderer.prototype.startRenderingLoop = function(){
                 demo.resetCallTime = false;
             }
             lastCallTime = now;
+
+            // Cap if we have a really large deltatime.
+            // The requestAnimationFrame deltatime is usually below 0.0333s (30Hz) and on desktops it should be below 0.0166s.
+            timeSinceLastCall = Math.min(timeSinceLastCall, 0.5);
+
             demo.world.step(demo.timeStep, timeSinceLastCall, demo.settings.maxSubSteps);
         }
         demo.render();
@@ -649,7 +654,7 @@ Renderer.prototype.handleMouseMove = function(physicsPosition){
 
     case Renderer.DRAWINGPOLYGON:
         // drawing a polygon - add new point
-        var sqdist = p2.vec2.dist(physicsPosition,this.drawPoints[this.drawPoints.length-1]);
+        var sqdist = p2.vec2.distance(physicsPosition,this.drawPoints[this.drawPoints.length-1]);
         if(sqdist > sampling*sampling){
             var copy = [0,0];
             p2.vec2.copy(copy,physicsPosition);
@@ -703,7 +708,7 @@ Renderer.prototype.handleMouseUp = function(physicsPosition){
             // Create polygon
             b = new p2.Body({ mass : 1 });
             if(b.fromPolygon(this.drawPoints,{
-                removeCollinearPoints : 0.01,
+                removeCollinearPoints: 0.1
             })){
                 this.world.addBody(b);
             }
@@ -715,7 +720,7 @@ Renderer.prototype.handleMouseUp = function(physicsPosition){
     case Renderer.DRAWINGCIRCLE:
         // End this drawing state
         this.setState(Renderer.DRAWCIRCLE);
-        var R = p2.vec2.dist(this.drawCircleCenter,this.drawCirclePoint);
+        var R = p2.vec2.distance(this.drawCircleCenter,this.drawCirclePoint);
         if(R > 0){
             // Create circle
             b = new p2.Body({ mass : 1, position : this.drawCircleCenter });
